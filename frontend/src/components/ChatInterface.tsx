@@ -296,6 +296,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
     // In voice mode, use ElevenLabs transcription
     if (currentMode === 'voice' && hasApiKey('elevenlabs')) {
       try {
+        console.log('Starting ElevenLabs transcription recording...');
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
         mediaRecorderRef.current = mediaRecorder;
@@ -428,6 +429,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
         return;
       } catch (error) {
         console.error('Error starting recording:', error);
+        if (error instanceof DOMException) {
+          if (error.name === 'NotAllowedError') {
+            alert('Microphone access is required for voice input. Please allow microphone access and try again.');
+          } else if (error.name === 'NotFoundError') {
+            alert('No microphone found. Please connect a microphone and try again.');
+          } else {
+            alert('Error accessing microphone: ' + error.message);
+          }
+        } else {
+          alert('Failed to start recording. Please check your microphone settings.');
+        }
         setIsRecording(false);
         return;
       }
@@ -451,8 +463,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
 
         mediaRecorder.onstop = async () => {
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-          const transcription = await transcribeAudio(audioBlob);
-          setInputValue(transcription);
+          try {
+            const transcription = await transcribeAudio(audioBlob);
+            if (transcription) {
+              setInputValue(transcription);
+            }
+          } catch (error) {
+            console.error('Transcription failed:', error);
+            alert('Failed to transcribe audio. Please try again.');
+          }
           stream.getTracks().forEach(track => track.stop());
         };
 
@@ -463,16 +482,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
 
       // Use Web Speech API
       console.log('Using Web Speech API for voice recognition');
-
-      // Request microphone permission first
-      try {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch (permissionError) {
-        console.error('Microphone permission denied:', permissionError);
-        alert('Microphone access is required for voice input. Please allow microphone access and try again.');
-        setIsRecording(false);
-        return;
-      }
 
       const recognition = new SpeechRecognition();
       recognitionRef.current = recognition;
@@ -505,9 +514,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
         setIsRecording(false);
 
         if (event.error === 'not-allowed') {
-          alert('Microphone access denied. Please allow microphone access in your browser settings and try again.');
+          alert('Microphone access is required for voice input. Please allow microphone access in your browser settings and try again.');
         } else if (event.error === 'no-speech') {
           console.log('No speech detected, continuing...');
+        } else if (event.error === 'network') {
+          console.error('Network error during speech recognition');
         } else {
           console.error('Speech recognition error:', event.error);
         }
@@ -521,6 +532,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
       recognition.start();
     } catch (error) {
       console.error('Error starting recording:', error);
+      if (error instanceof DOMException) {
+        if (error.name === 'NotAllowedError') {
+          alert('Microphone access is required for voice input. Please allow microphone access and try again.');
+        } else if (error.name === 'NotFoundError') {
+          alert('No microphone found. Please connect a microphone and try again.');
+        } else {
+          alert('Error accessing microphone: ' + error.message);
+        }
+      } else {
+        alert('Failed to start speech recognition. Please check your microphone settings.');
+      }
       setIsRecording(false);
     }
   };
@@ -536,7 +558,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   };
 
   const toggleRecording = () => {
-    console.log('Toggle recording clicked, isRecording:', isRecording, 'canUseVoiceInput:', canUseVoiceInput());
+    console.log('Toggle recording clicked, isRecording:', isRecording, 'canUseVoiceInput:', canUseVoiceInput(), 'currentMode:', currentMode);
     if (isRecording) {
       stopRecording();
     } else {
@@ -581,10 +603,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onMouseDown={startRecording}
-          onMouseUp={stopRecording}
-          onTouchStart={startRecording}
-          onTouchEnd={stopRecording}
+          onClick={toggleRecording}
           disabled={isGeneratingResponse || isAiSpeaking}
           className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 ${isRecording
             ? 'bg-red-500 text-white shadow-lg animate-pulse'
