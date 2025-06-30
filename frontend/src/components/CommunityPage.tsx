@@ -3,7 +3,7 @@ import { Plus, ThumbsUp, Handshake, MessageCircle, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-import { CommunityPost, CommunityReply } from '../types';
+import { CommunityPost } from '../types';
 import { getCommunityPosts, createCommunityPost, reactToPost } from '../services/supabase';
 
 const CommunityPage: React.FC = () => {
@@ -26,36 +26,7 @@ const CommunityPage: React.FC = () => {
       setPosts(communityPosts);
     } catch (error) {
       console.error('Error loading community posts:', error);
-      // Demo data for fallback
-      setPosts([
-        {
-          id: '1',
-          user_id: 'demo1',
-          anonymous_id: 'Anon Founder #1234',
-          content: "Just got rejected by another investor. Feeling like my idea isn't worth anything. Anyone else been through this?",
-          created_at: new Date(Date.now() - 3600000),
-          reactions: { thumbs_up: 12, handshake: 8, comment: 3 },
-          user_reaction: null
-        },
-        {
-          id: '2',
-          user_id: 'demo2',
-          anonymous_id: 'Anon Founder #5678',
-          content: "Two years in and finally hit our first $10K month. The journey has been brutal but worth it. Keep pushing everyone! 💪",
-          created_at: new Date(Date.now() - 7200000),
-          reactions: { thumbs_up: 24, handshake: 15, comment: 7 },
-          user_reaction: 'thumbs_up'
-        },
-        {
-          id: '3',
-          user_id: 'demo3',
-          anonymous_id: 'Anon Founder #9012',
-          content: "Burnout is real. Had to take a week off completely. Remember to take care of your mental health, fellow founders.",
-          created_at: new Date(Date.now() - 10800000),
-          reactions: { thumbs_up: 18, handshake: 22, comment: 5 },
-          user_reaction: 'handshake'
-        }
-      ]);
+      setPosts([]); // Show empty state instead of demo data
     } finally {
       setIsLoading(false);
     }
@@ -72,6 +43,8 @@ const CommunityPage: React.FC = () => {
       await loadCommunityPosts();
     } catch (error) {
       console.error('Error creating post:', error);
+      // You could add a toast notification here
+      alert('Failed to create post. Please try again.');
     } finally {
       setIsPosting(false);
     }
@@ -82,25 +55,8 @@ const CommunityPage: React.FC = () => {
 
     try {
       await reactToPost(postId, user.id, reactionType);
-      // Update local state optimistically
-      setPosts(posts.map(post => {
-        if (post.id === postId) {
-          const newReactions = { ...post.reactions };
-          if (post.user_reaction === reactionType) {
-            // Remove reaction
-            newReactions[reactionType]--;
-            return { ...post, reactions: newReactions, user_reaction: null };
-          } else {
-            // Add reaction (remove previous if exists)
-            if (post.user_reaction) {
-              newReactions[post.user_reaction]--;
-            }
-            newReactions[reactionType]++;
-            return { ...post, reactions: newReactions, user_reaction: reactionType };
-          }
-        }
-        return post;
-      }));
+      // Refresh posts to get updated reaction counts
+      await loadCommunityPosts();
     } catch (error) {
       console.error('Error reacting to post:', error);
     }
@@ -119,22 +75,19 @@ const CommunityPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className={`h-full flex items-center justify-center transition-colors duration-300 ${
-        isDark ? 'bg-gray-900' : 'bg-white'
-      }`}>
+      <div className={`h-full flex items-center justify-center transition-colors duration-300 ${isDark ? 'bg-gray-900' : 'bg-white'
+        }`}>
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
   return (
-    <div className={`h-full transition-colors duration-300 ${
-      isDark ? 'bg-gray-900' : 'bg-gray-50'
-    }`}>
-      {/* Header */}
-      <div className={`border-b p-6 transition-colors duration-300 ${
-        isDark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
+    <div className={`h-full transition-colors duration-300 ${isDark ? 'bg-gray-900' : 'bg-gray-50'
       }`}>
+      {/* Header */}
+      <div className={`border-b p-6 transition-colors duration-300 ${isDark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
+        }`}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -164,9 +117,8 @@ const CommunityPage: React.FC = () => {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className={`p-6 rounded-xl border transition-colors duration-300 ${
-                isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-              }`}
+              className={`p-6 rounded-xl border transition-colors duration-300 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                }`}
             >
               <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 Share Anonymously
@@ -175,11 +127,10 @@ const CommunityPage: React.FC = () => {
                 value={newPost}
                 onChange={(e) => setNewPost(e.target.value)}
                 placeholder="What's on your mind? Share your struggles, victories, or advice..."
-                className={`w-full h-32 p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 ${
-                  isDark
+                className={`w-full h-32 p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 ${isDark
                     ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
                     : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                }`}
+                  }`}
               />
               <div className="flex items-center justify-between mt-4">
                 <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -188,9 +139,8 @@ const CommunityPage: React.FC = () => {
                 <div className="flex space-x-2">
                   <button
                     onClick={() => setShowNewPostForm(false)}
-                    className={`px-4 py-2 rounded-lg transition-colors duration-200 ${
-                      isDark ? 'text-gray-400 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
-                    }`}
+                    className={`px-4 py-2 rounded-lg transition-colors duration-200 ${isDark ? 'text-gray-400 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
+                      }`}
                   >
                     Cancel
                   </button>
@@ -221,16 +171,14 @@ const CommunityPage: React.FC = () => {
               key={post.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`p-6 rounded-xl border transition-all duration-200 hover:shadow-lg ${
-                isDark ? 'bg-gray-800 border-gray-700 hover:border-gray-600' : 'bg-white border-gray-200 hover:border-gray-300'
-              }`}
+              className={`p-6 rounded-xl border transition-all duration-200 hover:shadow-lg ${isDark ? 'bg-gray-800 border-gray-700 hover:border-gray-600' : 'bg-white border-gray-200 hover:border-gray-300'
+                }`}
             >
               {/* Post Header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    isDark ? 'bg-blue-600' : 'bg-blue-500'
-                  }`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDark ? 'bg-blue-600' : 'bg-blue-500'
+                    }`}>
                     <span className="text-white text-sm font-medium">
                       {post.anonymous_id.split('#')[1]}
                     </span>
@@ -264,13 +212,12 @@ const CommunityPage: React.FC = () => {
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => handleReaction(post.id, reactionType)}
-                      className={`flex items-center space-x-1 px-3 py-1 rounded-full transition-colors duration-200 ${
-                        isActive
+                      className={`flex items-center space-x-1 px-3 py-1 rounded-full transition-colors duration-200 ${isActive
                           ? 'bg-blue-500 text-white'
                           : isDark
-                          ? 'text-gray-400 hover:bg-gray-700'
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`}
+                            ? 'text-gray-400 hover:bg-gray-700'
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}
                     >
                       <Icon className="w-4 h-4" />
                       <span className="text-sm">{count}</span>
@@ -284,12 +231,10 @@ const CommunityPage: React.FC = () => {
 
         {posts.length === 0 && (
           <div className="text-center py-12">
-            <MessageCircle className={`w-16 h-16 mx-auto mb-4 ${
-              isDark ? 'text-gray-600' : 'text-gray-400'
-            }`} />
-            <h3 className={`text-lg font-medium mb-2 ${
-              isDark ? 'text-gray-300' : 'text-gray-700'
-            }`}>
+            <MessageCircle className={`w-16 h-16 mx-auto mb-4 ${isDark ? 'text-gray-600' : 'text-gray-400'
+              }`} />
+            <h3 className={`text-lg font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'
+              }`}>
               No posts yet
             </h3>
             <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>

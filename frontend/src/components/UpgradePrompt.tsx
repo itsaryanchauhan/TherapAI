@@ -31,7 +31,7 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose, onGoToSe
       case 'video':
         return 'To use video therapy features, you need to add your Tavus API key in Settings.';
       default:
-        return 'To use this feature, you need to add the required API key in Settings.';
+        return 'To start chatting with the AI therapist, you need to add your Google Gemini API key in Settings.';
     }
   };
 
@@ -42,7 +42,7 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose, onGoToSe
       case 'video':
         return 'Tavus';
       default:
-        return 'the required service';
+        return 'Google Gemini';
     }
   };
 
@@ -53,7 +53,7 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose, onGoToSe
       case 'video':
         return 'https://tavus.io';
       default:
-        return '#';
+        return 'https://makersuite.google.com/app/apikey';
     }
   };
 

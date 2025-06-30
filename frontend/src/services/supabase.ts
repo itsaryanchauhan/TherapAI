@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Message, Session, CommunityPost, CommunityReply, UserStats } from '../types';
+import { Message, Session, CommunityPost, UserStats } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
@@ -87,7 +87,7 @@ export const getSessionMessages = async (sessionId: string): Promise<Message[]> 
       .order('timestamp', { ascending: true });
 
     if (error) throw error;
-    
+
     return data.map(msg => ({
       ...msg,
       timestamp: new Date(msg.timestamp)
@@ -108,7 +108,7 @@ export const getUserSessions = async (userId: string): Promise<Session[]> => {
       .order('start_time', { ascending: false });
 
     if (error) throw error;
-    
+
     return data.map(session => ({
       ...session,
       start_time: new Date(session.start_time),
@@ -133,20 +133,20 @@ export const getUserStats = async (userId: string): Promise<UserStats> => {
     const totalSessions = sessions.length;
     const totalWords = sessions.reduce((sum, s) => sum + (s.total_words || 0), 0);
     const totalMinutes = sessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
-    const averageSentiment = sessions.length > 0 
-      ? sessions.reduce((sum, s) => sum + (s.average_sentiment || 0), 0) / sessions.length 
+    const averageSentiment = sessions.length > 0
+      ? sessions.reduce((sum, s) => sum + (s.average_sentiment || 0), 0) / sessions.length
       : 0;
 
     // Calculate streak (simplified)
     const streakDays = calculateStreakDays(sessions);
-    
+
     // Find favorite mode
     const modeCounts = sessions.reduce((acc, s) => {
       acc[s.session_type] = (acc[s.session_type] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    
-    const favoriteMode = Object.entries(modeCounts).reduce((a, b) => 
+
+    const favoriteMode = Object.entries(modeCounts).reduce((a, b) =>
       modeCounts[a[0]] > modeCounts[b[0]] ? a : b
     )?.[0] as 'chat' | 'voice' | 'video' || 'chat';
 
@@ -173,41 +173,42 @@ export const getUserStats = async (userId: string): Promise<UserStats> => {
 
 const calculateStreakDays = (sessions: any[]): number => {
   if (sessions.length === 0) return 0;
-  
+
   const dates = sessions
     .map(s => new Date(s.start_time).toDateString())
     .filter((date, index, arr) => arr.indexOf(date) === index)
     .sort();
-  
+
   let streak = 1;
   for (let i = dates.length - 1; i > 0; i--) {
     const current = new Date(dates[i]);
     const previous = new Date(dates[i - 1]);
     const diffTime = Math.abs(current.getTime() - previous.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 1) {
       streak++;
     } else {
       break;
     }
   }
-  
+
   return streak;
 };
 
 // Community Features
 export const getCommunityPosts = async (): Promise<CommunityPost[]> => {
   try {
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
+
     const { data, error } = await supabase
-      .from('community_posts')
-      .select('*')
-      .order('created_at', { ascending: false })
+      .rpc('get_community_posts_with_reactions', { requesting_user_id: userId })
       .limit(50);
 
     if (error) throw error;
-    
-    return data.map(post => ({
+
+    return data.map((post: any) => ({
       ...post,
       created_at: new Date(post.created_at)
     }));
@@ -220,7 +221,7 @@ export const getCommunityPosts = async (): Promise<CommunityPost[]> => {
 export const createCommunityPost = async (userId: string, content: string) => {
   try {
     const anonymousId = `Anon Founder #${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`;
-    
+
     const { data, error } = await supabase
       .from('community_posts')
       .insert([
@@ -228,7 +229,6 @@ export const createCommunityPost = async (userId: string, content: string) => {
           user_id: userId,
           anonymous_id: anonymousId,
           content,
-          created_at: new Date().toISOString(),
           reactions: { thumbs_up: 0, handshake: 0, comment: 0 }
         }
       ])
@@ -245,9 +245,9 @@ export const createCommunityPost = async (userId: string, content: string) => {
 
 export const reactToPost = async (postId: string, userId: string, reactionType: 'thumbs_up' | 'handshake' | 'comment') => {
   try {
-    // This would be more complex in a real implementation to handle user reactions properly
     const { error } = await supabase.rpc('increment_reaction', {
       post_id: postId,
+      user_id: userId,
       reaction_type: reactionType
     });
 

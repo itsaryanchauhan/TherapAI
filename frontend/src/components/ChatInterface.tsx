@@ -404,10 +404,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={hasApiKey('gemini') ? "Share what's on your mind..." : "API key required - Go to Settings"}
-              className={`w-full px-4 py-3 pr-12 rounded-2xl border focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${isDark
-                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+              onClick={() => {
+                if (!hasApiKey('gemini')) {
+                  setShowUpgradePrompt(true);
+                }
+              }}
+              placeholder={hasApiKey('gemini') ? "Share what's on your mind..." : "Click to configure API key"}
+              className={`w-full px-4 py-3 pr-12 rounded-2xl border focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${!hasApiKey('gemini') ? 'cursor-pointer' : ''
+                } ${isDark
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
                 }`}
               disabled={isGeneratingResponse || !hasApiKey('gemini')}
             />
