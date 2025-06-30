@@ -59,7 +59,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
       try {
         const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
         setMicPermissionGranted(permissionStatus.state === 'granted');
-        
+
         permissionStatus.onchange = () => {
           setMicPermissionGranted(permissionStatus.state === 'granted');
         };
@@ -68,7 +68,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
         setMicPermissionGranted(null);
       }
     };
-    
+
     checkMicPermission();
   }, []);
 
@@ -158,7 +158,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !user) return;
 
+    console.log('Checking API key availability...');
+    console.log('Has Gemini API key:', hasApiKey('gemini'));
+
     if (!hasApiKey('gemini')) {
+      console.log('No Gemini API key found, showing upgrade prompt');
       setShowUpgradePrompt(true);
       return;
     }
@@ -190,7 +194,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
         conversationHistory
       });
 
+      console.log('AI Response received:', aiResponse);
+
       if (!aiResponse.success || !aiResponse.response) {
+        console.error('AI Response failed:', aiResponse.error);
         throw new Error(aiResponse.error || 'Failed to generate AI response');
       }
 
@@ -241,13 +248,20 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
 
     } catch (error) {
       console.error('Error generating AI response:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        hasGeminiKey: hasApiKey('gemini'),
+        inputValue,
+        sessionId
+      });
       setIsTyping(false);
       setIsGeneratingResponse(false);
 
       const errorMessage: Message = {
         id: `msg_${Date.now()}_error`,
         session_id: sessionId,
-        content: "I'm sorry, I'm having trouble generating a response right now. Please check your API key settings and try again.",
+        content: `I'm sorry, I'm having trouble generating a response right now. Error: ${error instanceof Error ? error.message : 'Unknown error'}. Please check your API key settings and try again.`,
         is_user: false,
         timestamp: new Date(),
         word_count: 20
@@ -386,22 +400,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   const getLocalStream = async () => {
     try {
       console.log("Requesting audio stream...");
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: false, 
-        audio: true 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: false,
+        audio: true
       });
-      
+
       console.log("Audio stream granted:", stream);
-      
+
       // Create audio element if it doesn't exist
       if (!window.localAudio) {
         window.localAudio = new Audio();
       }
-      
+
       window.localStream = stream;
       window.localAudio.srcObject = stream;
       window.localAudio.autoplay = true;
-      
+
       return stream;
     } catch (err) {
       console.error(`Error accessing microphone: ${err}`);
@@ -414,7 +428,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
       stopRecording();
       return;
     }
-    
+
     // Only request mic access on button click
     try {
       // First check if we already have permission
@@ -422,24 +436,24 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
         startRecording();
         return;
       }
-      
+
       // Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
+
       // Update permission state
       setMicPermissionGranted(true);
-      
+
       // If we're just checking permission, stop the stream
       if (!isRecording) {
         stream.getTracks().forEach(track => track.stop());
       }
-      
+
       // Start recording now that we have permission
       startRecording();
     } catch (error) {
       console.error("Mic access error:", error);
       setMicPermissionGranted(false);
-      
+
       if (error instanceof DOMException) {
         switch (error.name) {
           case 'NotAllowedError':
@@ -468,10 +482,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
           animate={{ scale: isAiSpeaking ? [1, 1.1, 1] : 1 }}
           transition={{ duration: 0.5, repeat: isAiSpeaking ? Infinity : 0 }}
           className={`w-32 h-32 rounded-full mx-auto mb-6 flex items-center justify-center ${isAiSpeaking
-              ? 'bg-blue-500 text-white'
-              : isDark
-                ? 'bg-gray-700 text-blue-400'
-                : 'bg-blue-100 text-blue-600'
+            ? 'bg-blue-500 text-white'
+            : isDark
+              ? 'bg-gray-700 text-blue-400'
+              : 'bg-blue-100 text-blue-600'
             }`}
         >
           <Phone className="w-16 h-16" />
@@ -500,12 +514,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
           onClick={toggleRecording}
           disabled={isGeneratingResponse || isAiSpeaking}
           className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 ${isRecording
-              ? 'bg-red-500 text-white shadow-lg animate-pulse'
-              : isGeneratingResponse || isAiSpeaking
-                ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                : isDark
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+            ? 'bg-red-500 text-white shadow-lg animate-pulse'
+            : isGeneratingResponse || isAiSpeaking
+              ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+              : isDark
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-blue-500 hover:bg-blue-600 text-white'
             }`}
         >
           {isRecording ? <MicOff className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
@@ -516,8 +530,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
           whileTap={{ scale: 0.95 }}
           onClick={() => setCurrentMode('chat')}
           className={`px-6 py-3 rounded-lg transition-colors ${isDark
-              ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-              : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+            ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
             }`}
         >
           Switch to Chat
@@ -570,7 +584,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
                 : isDark
                   ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   : 'bg-white text-gray-700 hover:bg-gray-100'
-              } ${(mode === 'voice' && !canAccessFeature('voice')) ? 'opacity-50' : ''}`}
+                } ${(mode === 'voice' && !canAccessFeature('voice')) ? 'opacity-50' : ''}`}
             >
               <Icon className="w-4 h-4" />
               <span className="text-sm font-medium">{label}</span>
@@ -678,12 +692,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
                   whileTap={{ scale: canUseVoiceInput() ? 0.9 : 1 }}
                   onClick={toggleRecording}
                   className={`p-3 rounded-full transition-all duration-200 ${isRecording
-                      ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse shadow-lg'
-                      : canUseVoiceInput()
-                        ? isDark
-                          ? 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-                          : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
-                        : 'bg-gray-300 text-gray-400 cursor-not-allowed'
+                    ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse shadow-lg'
+                    : canUseVoiceInput()
+                      ? isDark
+                        ? 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                        : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                      : 'bg-gray-300 text-gray-400 cursor-not-allowed'
                     }`}
                   title={
                     isRecording ? 'Stop recording' :
@@ -724,10 +738,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
                     onClick={handleSendMessage}
                     disabled={!inputValue.trim() || isGeneratingResponse || !hasApiKey('gemini')}
                     className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-full transition-all duration-200 ${inputValue.trim() && !isGeneratingResponse && hasApiKey('gemini')
-                        ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-lg'
-                        : isDark
-                          ? 'bg-gray-600 text-gray-400'
-                          : 'bg-gray-200 text-gray-400'
+                      ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-lg'
+                      : isDark
+                        ? 'bg-gray-600 text-gray-400'
+                        : 'bg-gray-200 text-gray-400'
                       } disabled:cursor-not-allowed`}
                   >
                     <Send className="w-4 h-4" />

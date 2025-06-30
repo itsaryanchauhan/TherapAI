@@ -9,6 +9,7 @@ import LoginPage from './components/LoginPage';
 import ChatInterface from './components/ChatInterface';
 import SettingsPage from './components/SettingsPage';
 import Sidebar from './components/Sidebar';
+import DebugPanel from './components/DebugPanel';
 import { useTheme } from './contexts/ThemeContext';
 
 const AppContent: React.FC = () => {
@@ -146,6 +147,9 @@ const AppContent: React.FC = () => {
           {renderCurrentView()}
         </motion.div>
       </div>
+      
+      {/* Debug Panel - Only show in development or for debugging */}
+      <DebugPanel />
     </div>
   );
 };

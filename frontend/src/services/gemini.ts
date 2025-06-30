@@ -20,8 +20,12 @@ const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/
 export const generateAIResponse = async (request: ChatRequest): Promise<ChatResponse> => {
     try {
         const apiKey = ApiKeyManager.getApiKey('gemini');
+        console.log('API Key found:', !!apiKey);
+        console.log('API Key length:', apiKey?.length || 0);
+        console.log('API Key starts with AIza:', apiKey?.startsWith('AIza') || false);
 
         if (!apiKey) {
+            console.error('No Gemini API key found');
             return {
                 success: false,
                 error: 'Gemini API key not found. Please add your API key in Settings.'
@@ -85,20 +89,40 @@ export const generateAIResponse = async (request: ChatRequest): Promise<ChatResp
         });
 
         console.log('Response status:', response.status);
+        console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
         if (!response.ok) {
-            const errorData = await response.json();
+            const errorText = await response.text();
+            console.error('Gemini API Error Response Text:', errorText);
+
+            let errorData;
+            try {
+                errorData = JSON.parse(errorText);
+            } catch (e) {
+                errorData = { error: { message: errorText } };
+            }
+
             console.error('Gemini API Error:', errorData);
 
             if (response.status === 400) {
                 return {
                     success: false,
-                    error: 'Invalid API key or request. Please check your Gemini API key in Settings.'
+                    error: `API Error 400: ${errorData.error?.message || 'Invalid request. Check your API key format.'}`
                 };
             } else if (response.status === 403) {
                 return {
                     success: false,
-                    error: 'API key access denied. Please ensure your Gemini API key has the correct permissions.'
+                    error: `API Error 403: ${errorData.error?.message || 'Access denied. Check API key permissions and billing.'}`
+                };
+            } else if (response.status === 429) {
+                return {
+                    success: false,
+                    error: 'API Error 429: Rate limit exceeded. Please try again later.'
+                };
+            } else if (response.status >= 500) {
+                return {
+                    success: false,
+                    error: `API Error ${response.status}: Server error. Please try again later.`
                 };
             }
 
@@ -127,9 +151,25 @@ export const generateAIResponse = async (request: ChatRequest): Promise<ChatResp
         }
     } catch (error) {
         console.error('Error generating AI response:', error);
+        
+        // Handle specific network errors common in Netlify deployments
+        if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+            return {
+                success: false,
+                error: 'Network error: Unable to reach Gemini API. This might be due to network restrictions or CORS issues.'
+            };
+        }
+        
+        if (error instanceof Error && error.name === 'AbortError') {
+            return {
+                success: false,
+                error: 'Request timeout: The API call took too long to complete.'
+            };
+        }
+        
         return {
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error occurred'
+            error: error instanceof Error ? `Network error: ${error.message}` : 'Unknown network error occurred'
         };
     }
 };

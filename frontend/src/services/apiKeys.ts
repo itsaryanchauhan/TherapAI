@@ -2,7 +2,7 @@
 export interface ApiKeys {
     gemini?: string;
     elevenlabs?: string;
-s}
+}
 
 const STORAGE_KEY = 'therapai_api_keys';
 
@@ -21,7 +21,9 @@ export class ApiKeyManager {
     // Get a specific API key
     static getApiKey(service: keyof ApiKeys): string | undefined {
         const keys = this.getApiKeys();
-        return keys[service];
+        const key = keys[service];
+        console.log(`Getting API key for ${service}:`, !!key, key?.length || 0);
+        return key;
     }
 
     // Set API keys
@@ -65,7 +67,9 @@ export class ApiKeyManager {
         switch (service) {
             case 'gemini':
                 // Gemini keys typically start with 'AIza' and are about 39 characters
-                return key.startsWith('AIza') && key.length >= 35 && key.length <= 45;
+                // But sometimes they can vary, so be more lenient
+                return (key.startsWith('AIza') && key.length >= 30 && key.length <= 50) ||
+                       (key.length >= 35 && key.length <= 50); // Fallback for other formats
 
             case 'elevenlabs':
                 // ElevenLabs keys are typically 32 characters
