@@ -1,26 +1,69 @@
-import React from 'react';
-import { X, Crown, Check, Zap } from 'lucide-react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTheme } from '../contexts/ThemeContext';
+import { Crown, X, Check, Zap, Video, Mic, Star } from 'lucide-react';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useTheme } from '../contexts/ThemeContext';
+import toast from 'react-hot-toast';
 
 interface UpgradePromptProps {
   isOpen: boolean;
   onClose: () => void;
+  feature?: 'voice' | 'video' | 'unlimited_sessions';
 }
 
-const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose }) => {
+const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose, feature }) => {
+  const { plans, purchasePackage, restorePurchases, isLoading } = useSubscription();
   const { isDark } = useTheme();
-  const { plans, upgradeToPremium, isLoading } = useSubscription();
+  const [selectedPlan, setSelectedPlan] = useState<string>('premium_monthly');
 
-  const handleUpgrade = async () => {
+  const handlePurchase = async (planId: string) => {
     try {
-      await upgradeToPremium();
+      await purchasePackage(planId);
+      toast.success('Successfully upgraded!');
       onClose();
     } catch (error) {
-      console.error('Upgrade failed:', error);
+      console.error('Purchase failed:', error);
     }
   };
+
+  const getFeatureIcon = (feature: string) => {
+    switch (feature) {
+      case 'voice':
+        return <Mic className="w-5 h-5" />;
+      case 'video':
+        return <Video className="w-5 h-5" />;
+      default:
+        return <Star className="w-5 h-5" />;
+    }
+  };
+
+  const getFeatureTitle = (feature?: string) => {
+    switch (feature) {
+      case 'voice':
+        return 'Unlock Voice Responses';
+      case 'video':
+        return 'Unlock Video Conversations';
+      case 'unlimited_sessions':
+        return 'Get Unlimited Sessions';
+      default:
+        return 'Upgrade Your Experience';
+    }
+  };
+
+  const getFeatureDescription = (feature?: string) => {
+    switch (feature) {
+      case 'voice':
+        return 'Experience natural conversations with AI-generated voice responses powered by ElevenLabs';
+      case 'video':
+        return 'Get face-to-face therapy sessions with realistic AI avatars powered by Tavus';
+      case 'unlimited_sessions':
+        return 'Remove session limits and chat as much as you need';
+      default:
+        return 'Unlock premium features for the best therapy experience';
+    }
+  };
+
+  if (!isOpen) return null;
 
   return (
     <AnimatePresence>
@@ -40,16 +83,14 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose }) => {
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className={`relative w-full max-w-md p-6 rounded-2xl shadow-2xl ${
-              isDark ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
-            }`}
+            className={`relative w-full max-w-md p-6 rounded-2xl shadow-2xl ${isDark ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
+              }`}
           >
             {/* Close Button */}
             <button
               onClick={onClose}
-              className={`absolute top-4 right-4 p-2 rounded-full transition-colors duration-200 ${
-                isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-              }`}
+              className={`absolute top-4 right-4 p-2 rounded-full transition-colors duration-200 ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                }`}
             >
               <X className={`w-5 h-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`} />
             </button>
@@ -70,9 +111,8 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose }) => {
             </div>
 
             {/* Premium Plan */}
-            <div className={`p-6 rounded-xl border-2 border-blue-500 mb-6 ${
-              isDark ? 'bg-gray-700' : 'bg-blue-50'
-            }`}>
+            <div className={`p-6 rounded-xl border-2 border-blue-500 mb-6 ${isDark ? 'bg-gray-700' : 'bg-blue-50'
+              }`}>
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -111,9 +151,8 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose }) => {
             </div>
 
             {/* Pro Plan Teaser */}
-            <div className={`p-4 rounded-xl border mb-6 ${
-              isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
-            }`}>
+            <div className={`p-4 rounded-xl border mb-6 ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
+              }`}>
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -150,11 +189,10 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose }) => {
 
               <button
                 onClick={onClose}
-                className={`w-full py-3 px-4 rounded-xl font-medium transition-colors duration-200 ${
-                  isDark 
-                    ? 'text-gray-400 hover:bg-gray-700' 
+                className={`w-full py-3 px-4 rounded-xl font-medium transition-colors duration-200 ${isDark
+                    ? 'text-gray-400 hover:bg-gray-700'
                     : 'text-gray-600 hover:bg-gray-100'
-                }`}
+                  }`}
               >
                 Maybe Later
               </button>
@@ -166,9 +204,8 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose }) => {
                 href="https://bolt.new"
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`inline-flex items-center text-xs ${
-                  isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
-                } transition-colors duration-200`}
+                className={`inline-flex items-center text-xs ${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
+                  } transition-colors duration-200`}
               >
                 <Zap className="w-3 h-3 mr-1 text-yellow-500" />
                 Built with Bolt
