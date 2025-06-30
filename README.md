@@ -27,10 +27,10 @@ TherapAI is a comprehensive mental health platform that combines artificial inte
 - **Scalable AI therapists** that never sleep or take vacations
 - **Privacy by design** - no judgment, complete anonymity
 
-## 🚀 Complete Vercel Deployment Guide
+## 🚀 Complete Netlify Deployment Guide
 
 ### Prerequisites
-1. **Vercel Account** - Sign up at [vercel.com](https://vercel.com)
+1. **Netlify Account** - Sign up at [netlify.com](https://netlify.com)
 2. **GitHub Repository** - Push this code to GitHub
 3. **Required API Keys**:
    - Supabase (Database & Auth)
@@ -39,42 +39,47 @@ TherapAI is a comprehensive mental health platform that combines artificial inte
    - Tavus (Video Personas)
    - RevenueCat (Subscriptions)
 
-### Step 1: Backend Deployment
+### Option 1: Automatic Deployment (Recommended)
 ```bash
-# 1. Create new Vercel project for backend
-cd backend
-vercel init
-
-# 2. Configure vercel.json for Express
-# (File will be created automatically)
-
-# 3. Deploy backend
-vercel --prod
-
-# 4. Set environment variables in Vercel dashboard:
-# - SUPABASE_URL
-# - SUPABASE_SERVICE_KEY  
-# - GEMINI_API_KEY
-# - ELEVENLABS_API_KEY
-# - TAVUS_API_KEY
-# - REVENUECAT_API_KEY
-# - JWT_SECRET
+# Easy one-command deployment
+.\deploy-netlify.ps1
 ```
 
-### Step 2: Frontend Deployment
+### Option 2: Manual Deployment
+
+#### Step 1: Connect GitHub to Netlify
+1. Push your code to GitHub
+2. Go to [Netlify Dashboard](https://app.netlify.com)
+3. Click "New site from Git"
+4. Connect your GitHub repo
+5. Set build settings:
+   - **Base directory**: `frontend`
+   - **Build command**: `npm run build`
+   - **Publish directory**: `dist`
+   - **Functions directory**: `../backend/netlify/functions`
+
+#### Step 2: Configure Environment Variables
+In Netlify Dashboard → Site Settings → Environment Variables:
+
+**Frontend Variables:**
 ```bash
-# 1. Create new Vercel project for frontend
-cd frontend
-vercel init
+VITE_SUPABASE_URL=your_supabase_url_here
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+VITE_GEMINI_API_KEY=your_gemini_api_key_here
+VITE_ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
+VITE_TAVUS_API_KEY=your_tavus_api_key_here
+VITE_REVENUECAT_PUBLIC_KEY=your_revenuecat_public_key_here
+```
 
-# 2. Deploy frontend  
-vercel --prod
-
-# 3. Set environment variables in Vercel dashboard:
-# - VITE_SUPABASE_URL
-# - VITE_SUPABASE_ANON_KEY
-# - VITE_REVENUECAT_PUBLIC_KEY
-# - VITE_API_URL (your backend Vercel URL)
+**Backend Variables (for Functions):**
+```bash
+SUPABASE_URL=your_supabase_url_here
+SUPABASE_SERVICE_KEY=your_supabase_service_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
+ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
+TAVUS_API_KEY=your_tavus_api_key_here
+REVENUECAT_API_KEY=your_revenuecat_secret_key_here
+JWT_SECRET=your_generated_jwt_secret
 ```
 
 ### Step 3: Database Setup
@@ -89,10 +94,13 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- (Full SQL in the migration file)
 ```
 
-### Step 4: Domain & SSL
-1. **Custom Domain**: Point your domain to Vercel
-2. **SSL Certificate**: Automatic with Vercel
-3. **Environment URLs**: Update CORS and redirect URLs
+### Step 4: Custom Domain & SSL (Optional)
+1. **Custom Domain**: Add your domain in Netlify Dashboard
+2. **SSL Certificate**: Automatic with Netlify
+3. **DNS**: Point your domain to Netlify's servers
+
+### Step 5: Launch! 🚀
+Your TherapAI startup is now live at: `https://your-site.netlify.app`
 
 ## 📊 Business Model
 
@@ -139,10 +147,10 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 - **Payments**: RevenueCat for subscription management
 
 ### Infrastructure
-- **Hosting**: Vercel (frontend + backend)
+- **Hosting**: Netlify (frontend + serverless functions)
 - **Database**: Supabase (managed PostgreSQL)
-- **CDN**: Vercel Edge Network
-- **Monitoring**: Vercel Analytics + Sentry
+- **CDN**: Netlify Edge Network
+- **Functions**: Netlify Serverless Functions
 - **Security**: HTTPS, CORS, rate limiting
 
 ## 📁 Project Structure

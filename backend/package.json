@@ -36,7 +36,9 @@
         "axios": "^1.6.2",
         "@revenuecat/node": "^1.2.0",
         "form-data": "^4.0.0",
-        "node-fetch": "^3.3.2"
+        "node-fetch": "^3.3.2",
+        "@netlify/functions": "^2.4.1",
+        "serverless-http": "^3.2.0"
     },
     "devDependencies": {
         "@types/express": "^4.17.21",
