@@ -151,7 +151,7 @@ export const generateAIResponse = async (request: ChatRequest): Promise<ChatResp
         }
     } catch (error) {
         console.error('Error generating AI response:', error);
-        
+
         // Handle specific network errors common in Netlify deployments
         if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
             return {
@@ -159,14 +159,14 @@ export const generateAIResponse = async (request: ChatRequest): Promise<ChatResp
                 error: 'Network error: Unable to reach Gemini API. This might be due to network restrictions or CORS issues.'
             };
         }
-        
+
         if (error instanceof Error && error.name === 'AbortError') {
             return {
                 success: false,
                 error: 'Request timeout: The API call took too long to complete.'
             };
         }
-        
+
         return {
             success: false,
             error: error instanceof Error ? `Network error: ${error.message}` : 'Unknown network error occurred'

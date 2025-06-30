@@ -10,7 +10,7 @@ import TypingIndicator from './TypingIndicator';
 import UpgradePrompt from './UpgradePrompt';
 import { generateVoiceResponse, transcribeAudio } from '../services/elevenlabs';
 import { generateAIResponse } from '../services/gemini';
-import { saveMessage, createSession, getSessionMessages } from '../services/supabase';
+// Note: Supabase is only used for user authentication, not for storing chat messages
 
 // Extend Window interface for Web Speech API
 declare global {
@@ -102,21 +102,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
     scrollToBottom();
   }, [messages, isTyping]);
 
-  // Fixed session initialization to prevent creating sessions on app switch
+  // Session management - simplified for local storage only
   useEffect(() => {
     if (user && !sessionId) {
-      const sessionFromStorage = localStorage.getItem(`therapai_session_${user.id}`);
-      if (sessionFromStorage) {
-        setSessionId(sessionFromStorage);
-        // Load messages for existing session
-        getSessionMessages(sessionFromStorage).then(messages => {
-          if (messages && messages.length > 0) {
-            setMessages(messages);
-          }
-        });
-      } else {
-        initializeSession();
-      }
+      // Create a simple local session ID
+      const localSessionId = `local_${Date.now()}_${user.id}`;
+      setSessionId(localSessionId);
+      localStorage.setItem(`therapai_session_${user.id}`, localSessionId);
     }
   }, [user]);
 
@@ -134,26 +126,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
 
       setMessages([welcomeMessage]);
 
-      saveMessage(welcomeMessage).catch(error => {
-        console.error('Error saving welcome message:', error);
-      });
+      // No database saving - messages are stored locally only
     }
   }, [user, sessionId, hasApiKey('gemini'), messages.length]);
-
-  const initializeSession = async () => {
-    if (!user || sessionId) return;
-    try {
-      const newSessionId = await createSession(user.id, currentMode);
-      setSessionId(newSessionId);
-      localStorage.setItem(`therapai_session_${user.id}`, newSessionId);
-      const existingMessages = await getSessionMessages(newSessionId);
-      if (existingMessages && existingMessages.length > 0) {
-        setMessages(existingMessages);
-      }
-    } catch (error) {
-      console.error('Error creating or fetching session:', error);
-    }
-  };
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !user) return;
@@ -182,8 +157,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
     setIsGeneratingResponse(true);
 
     try {
-      await saveMessage(userMessage);
-
+      // Only save user messages locally - no database saving
       const conversationHistory = messages.map(msg => ({
         role: msg.is_user ? ('user' as const) : ('assistant' as const),
         content: msg.content
@@ -238,8 +212,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
         setMessages(prev => [...prev, aiMessage]);
         setIsTyping(false);
         setIsGeneratingResponse(false);
-
-        await saveMessage(aiMessage);
 
         if (onNewMessage) {
           onNewMessage(aiMessage);
@@ -393,33 +365,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
     } else if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-    }
-  };
-
-  // Function to get local audio stream
-  const getLocalStream = async () => {
-    try {
-      console.log("Requesting audio stream...");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: false,
-        audio: true
-      });
-
-      console.log("Audio stream granted:", stream);
-
-      // Create audio element if it doesn't exist
-      if (!window.localAudio) {
-        window.localAudio = new Audio();
-      }
-
-      window.localStream = stream;
-      window.localAudio.srcObject = stream;
-      window.localAudio.autoplay = true;
-
-      return stream;
-    } catch (err) {
-      console.error(`Error accessing microphone: ${err}`);
-      throw err;
     }
   };
 

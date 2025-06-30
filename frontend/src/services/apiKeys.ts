@@ -69,7 +69,7 @@ export class ApiKeyManager {
                 // Gemini keys typically start with 'AIza' and are about 39 characters
                 // But sometimes they can vary, so be more lenient
                 return (key.startsWith('AIza') && key.length >= 30 && key.length <= 50) ||
-                       (key.length >= 35 && key.length <= 50); // Fallback for other formats
+                    (key.length >= 35 && key.length <= 50); // Fallback for other formats
 
             case 'elevenlabs':
                 // ElevenLabs keys are typically 32 characters
