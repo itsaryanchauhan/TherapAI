@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, MessageSquare } from 'lucide-react';
+import { Send, Mic, MicOff, MessageSquare, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Message } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
