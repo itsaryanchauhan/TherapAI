@@ -45,7 +45,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             console.log('Auth initialization timeout, continuing...');
             setIsLoading(false);
           }
-        }, 5000); // 5 seconds timeout
+        }, 2000); // 2 seconds timeout
 
         // Get initial session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -116,9 +116,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           console.error('Auth state change error:', error);
           // Don't leave user in loading state
           if (mounted) {
-            if (error.message?.includes('Failed to fetch') || 
-                error.message?.includes('network') ||
-                error.message?.includes('ENOTFOUND')) {
+            if (error.message?.includes('Failed to fetch') ||
+              error.message?.includes('network') ||
+              error.message?.includes('ENOTFOUND')) {
               setError('Connection lost. Please check your internet connection.');
             } else {
               setError(error.message || 'Authentication error occurred');
@@ -204,7 +204,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Database query timeout')), 5000);
+        setTimeout(() => reject(new Error('Database query timeout')), 3000);
       });
 
       const { data, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
@@ -225,7 +225,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setIsLoading(false);
         return;
       }
-      
+
       // If no profile exists, create one
       if (!data && authUser) {
         const newProfile = {

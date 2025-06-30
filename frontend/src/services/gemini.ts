@@ -15,7 +15,7 @@ export interface ChatResponse {
     error?: string;
 }
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 export const generateAIResponse = async (request: ChatRequest): Promise<ChatResponse> => {
     try {
