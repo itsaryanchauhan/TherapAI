@@ -1,9 +1,6 @@
-import { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
-
-export const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
-    // Basic handler for now - will be replaced with proper Express app
+exports.handler = async (event, context) => {
     try {
-        const { path, httpMethod, headers, body } = event;
+        const { path, httpMethod } = event;
 
         // Health check endpoint
         if (path === '/api/health' && httpMethod === 'GET') {
@@ -50,7 +47,6 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
         };
 
     } catch (error) {
-        // eslint-disable-next-line no-console
         console.error('Function error:', error);
         return {
             statusCode: 500,
