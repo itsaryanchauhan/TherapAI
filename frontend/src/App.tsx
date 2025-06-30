@@ -7,14 +7,12 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import LoginPage from './components/LoginPage';
 import ChatInterface from './components/ChatInterface';
-import Dashboard from './components/Dashboard';
-import CommunityPage from './components/CommunityPage';
 import SettingsPage from './components/SettingsPage';
 import Sidebar from './components/Sidebar';
 import { useTheme } from './contexts/ThemeContext';
 
 const AppContent: React.FC = () => {
-  const [currentView, setCurrentView] = useState<'chat' | 'dashboard' | 'community' | 'settings'>('chat');
+  const [currentView, setCurrentView] = useState<'chat' | 'settings'>('chat');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const { user, isLoading, error } = useAuth();
@@ -80,10 +78,6 @@ const AppContent: React.FC = () => {
 
   const renderCurrentView = () => {
     switch (currentView) {
-      case 'dashboard':
-        return <Dashboard />;
-      case 'community':
-        return <CommunityPage />;
       case 'settings':
         return <SettingsPage />;
       default:

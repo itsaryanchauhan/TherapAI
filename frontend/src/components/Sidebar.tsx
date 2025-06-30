@@ -1,13 +1,13 @@
 import React from 'react';
-import { MessageSquare, BarChart3, Users, Settings, LogOut, Sun, Moon, User, Zap } from 'lucide-react';
+import { MessageSquare, Settings, LogOut, Sun, Moon, User, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 
 interface SidebarProps {
-  currentView: 'chat' | 'dashboard' | 'community' | 'settings';
-  onViewChange: (view: 'chat' | 'dashboard' | 'community' | 'settings') => void;
+  currentView: 'chat' | 'settings';
+  onViewChange: (view: 'chat' | 'settings') => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
 }
@@ -22,8 +22,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const menuItems = [
     { id: 'chat', icon: MessageSquare, label: 'Therapy Chat' },
-    { id: 'dashboard', icon: BarChart3, label: 'Dashboard' },
-    { id: 'community', icon: Users, label: 'Community' },
     { id: 'settings', icon: Settings, label: 'Settings' },
   ];
 

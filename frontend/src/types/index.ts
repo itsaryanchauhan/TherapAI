@@ -33,20 +33,6 @@ export interface Session {
   summary?: string;
 }
 
-export interface CommunityPost {
-  id: string;
-  user_id: string;
-  anonymous_id: string;
-  content: string;
-  created_at: Date;
-  reactions: {
-    thumbs_up: number;
-    handshake: number;
-    comment: number;
-  };
-  user_reaction?: 'thumbs_up' | 'handshake' | 'comment' | null;
-}
-
 export interface CommunityReply {
   id: string;
   post_id: string;

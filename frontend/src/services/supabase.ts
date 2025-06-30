@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Message, Session, CommunityPost, UserStats } from '../types';
+import { Message, Session, UserStats } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
@@ -193,91 +193,4 @@ const calculateStreakDays = (sessions: any[]): number => {
   }
 
   return streak;
-};
-
-// Community Features
-export const getCommunityPosts = async (): Promise<CommunityPost[]> => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    const userId = user?.id;
-
-    const { data, error } = await supabase
-      .rpc('get_community_posts_with_reactions', { requesting_user_id: userId })
-      .limit(50);
-
-    if (error) throw error;
-
-    return data.map((post: any) => ({
-      ...post,
-      created_at: new Date(post.created_at)
-    }));
-  } catch (error) {
-    console.error('Error fetching community posts:', error);
-    return [];
-  }
-};
-
-export const createCommunityPost = async (userId: string, content: string) => {
-  try {
-    const anonymousId = `Anon Founder #${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`;
-
-    const { data, error } = await supabase
-      .from('community_posts')
-      .insert([
-        {
-          user_id: userId,
-          anonymous_id: anonymousId,
-          content,
-          reactions: { thumbs_up: 0, handshake: 0, comment: 0 }
-        }
-      ])
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error creating community post:', error);
-    throw error;
-  }
-};
-
-export const reactToPost = async (postId: string, userId: string, reactionType: 'thumbs_up' | 'handshake' | 'comment') => {
-  try {
-    const { error } = await supabase.rpc('increment_reaction', {
-      post_id: postId,
-      user_id: userId,
-      reaction_type: reactionType
-    });
-
-    if (error) throw error;
-  } catch (error) {
-    console.error('Error reacting to post:', error);
-    throw error;
-  }
-};
-
-export const createComment = async (postId: string, userId: string, content: string) => {
-  try {
-    const anonymousId = `Anon Founder #${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`;
-
-    const { data, error } = await supabase
-      .from('community_comments')
-      .insert([
-        {
-          post_id: postId,
-          user_id: userId,
-          anonymous_id: anonymousId,
-          content
-        }
-      ])
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error creating comment:', error);
-    throw error;
-  }
 };

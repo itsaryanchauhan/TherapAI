@@ -2,8 +2,7 @@
 export interface ApiKeys {
     gemini?: string;
     elevenlabs?: string;
-    tavus?: string;
-}
+s}
 
 const STORAGE_KEY = 'therapai_api_keys';
 
@@ -72,10 +71,6 @@ export class ApiKeyManager {
                 // ElevenLabs keys are typically 32 characters
                 return key.length > 20 && key.length < 100;
 
-            case 'tavus':
-                // Tavus keys format may vary
-                return key.length > 10 && key.length < 100;
-
             default:
                 return key.length > 10;
         }
@@ -100,10 +95,6 @@ export const getApiHeaders = (): Record<string, string> => {
         headers['x-elevenlabs-api-key'] = keys.elevenlabs;
     }
 
-    if (keys.tavus) {
-        headers['x-tavus-api-key'] = keys.tavus;
-    }
-
     return headers;
 };
 
@@ -122,12 +113,5 @@ export const API_SERVICES = {
         website: 'https://elevenlabs.io',
         required: false,
         features: ['Voice Responses', 'Audio Generation']
-    },
-    tavus: {
-        name: 'Tavus',
-        description: 'Video Avatars',
-        website: 'https://tavus.io',
-        required: false,
-        features: ['Video Therapy', 'Avatar Conversations']
     }
 } as const;

@@ -62,7 +62,6 @@ i18n
                         apiKeys: 'API Keys',
                         useOwnKeys: 'Use your own API keys',
                         elevenlabsKey: 'ElevenLabs API Key',
-                        tavusKey: 'Tavus API Key',
                         save: 'Save'
                     }
                 }
@@ -104,7 +103,6 @@ i18n
                         apiKeys: 'Claves API',
                         useOwnKeys: 'Usar tus propias claves API',
                         elevenlabsKey: 'Clave API de ElevenLabs',
-                        tavusKey: 'Clave API de Tavus',
                         save: 'Guardar'
                     }
                 }
@@ -146,7 +144,6 @@ i18n
                         apiKeys: 'Clés API',
                         useOwnKeys: 'Utiliser vos propres clés API',
                         elevenlabsKey: 'Clé API ElevenLabs',
-                        tavusKey: 'Clé API Tavus',
                         save: 'Sauvegarder'
                     }
                 }
