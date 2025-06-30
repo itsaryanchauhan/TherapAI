@@ -17,6 +17,8 @@ declare global {
   interface Window {
     SpeechRecognition: any;
     webkitSpeechRecognition: any;
+    localStream: MediaStream;
+    localAudio: HTMLAudioElement;
   }
 }
 
@@ -62,18 +64,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
 
   // Helper function to check if voice input (microphone) is available
   const canUseVoiceInput = () => {
-  const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-  const hasSpeechAPI = !!SpeechRecognition;
-  const hasElevenLabsKey = hasApiKey('elevenlabs');
-  const hasMicSupport = !!navigator.mediaDevices && !!navigator.mediaDevices.getUserMedia;
+    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const hasSpeechAPI = !!SpeechRecognition;
+    const hasElevenLabsKey = hasApiKey('elevenlabs');
+    const hasMicSupport = !!navigator.mediaDevices && !!navigator.mediaDevices.getUserMedia;
 
-  if (currentMode === 'chat') {
-    return hasSpeechAPI && hasMicSupport;
-  } else {
-    return hasElevenLabsKey && hasMicSupport;
-  }
-};
-
+    if (currentMode === 'chat') {
+      return hasSpeechAPI && hasMicSupport;
+    } else {
+      return hasElevenLabsKey && hasMicSupport;
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -416,38 +417,78 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
     }
   };
 
+  // Function to get local audio stream
+  const getLocalStream = async () => {
+    try {
+      console.log("Requesting audio stream...");
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: false, 
+        audio: true 
+      });
+      
+      console.log("Audio stream granted:", stream);
+      
+      // Create audio element if it doesn't exist
+      if (!window.localAudio) {
+        window.localAudio = new Audio();
+      }
+      
+      window.localStream = stream;
+      window.localAudio.srcObject = stream;
+      window.localAudio.autoplay = true;
+      
+      return stream;
+    } catch (err) {
+      console.error(`Error accessing microphone: ${err}`);
+      throw err;
+    }
+  };
+
   const toggleRecording = async () => {
     if (isRecording) {
       stopRecording();
       return;
     }
 
-    // Always attempt mic access directly
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop());
-
+      console.log("Requesting microphone permission...");
+      const stream = await getLocalStream();
+      
+      // Test the stream to ensure it's working
+      const audioTracks = stream.getAudioTracks();
+      console.log("Audio tracks available:", audioTracks.length);
+      console.log("Audio track settings:", audioTracks[0].getSettings());
+      
       // ✅ Mic access granted, now proceed
+      console.log("Microphone permission granted, starting recording...");
       startRecording();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Mic access error:", error);
       if (error instanceof DOMException) {
         switch (error.name) {
           case 'NotAllowedError':
-            alert("Microphone access denied. Please allow access in your browser.");
+            alert("Please allow microphone access to use voice features. You can change this in your browser settings.");
             break;
           case 'NotFoundError':
-            alert("No microphone found. Please connect a mic.");
+            alert("No microphone found. Please connect a microphone and try again.");
             break;
           case 'NotReadableError':
-            alert("Microphone is already in use.");
+            alert("Cannot access your microphone. It may be in use by another application.");
+            break;
+          case 'SecurityError':
+            alert("Microphone access is blocked by your browser's security settings.");
             break;
           default:
             alert("Microphone access error: " + error.message);
         }
       } else {
-        alert("Unknown error accessing microphone.");
+        alert("Unexpected error while accessing microphone. Please check your device settings.");
       }
+      console.log("Microphone access failed, error details:", {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
     }
   };
 
