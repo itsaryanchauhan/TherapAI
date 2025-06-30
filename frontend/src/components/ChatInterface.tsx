@@ -9,7 +9,6 @@ import MessageBubble from './MessageBubble';
 import TypingIndicator from './TypingIndicator';
 import UpgradePrompt from './UpgradePrompt';
 import { generateVoiceResponse, transcribeAudio } from '../services/elevenlabs';
-import { generateVideoResponse } from '../services/tavus';
 import { generateAIResponse } from '../services/gemini';
 import { saveMessage, createSession } from '../services/supabase';
 
@@ -92,7 +91,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
     if (user && !sessionId) {
       initializeSession();
     }
-  }, [user]);
+  }, [user, sessionId]); // Restored sessionId to dependency array
 
   // Separate effect to add welcome message when API key is added
   useEffect(() => {
@@ -116,19 +115,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   }, [user, sessionId, hasApiKey('gemini'), messages.length]);
 
   const initializeSession = async () => {
-    if (!user) return;
+    if (!user || sessionId) return; // Only create session if none exists
     try {
       const newSessionId = await createSession(user.id, currentMode);
       setSessionId(newSessionId);
+      // Fetch existing messages for the session
+      const existingMessages = await getMessages(newSessionId);
+      if (existingMessages) {
+        setMessages(existingMessages);
+      }
     } catch (error) {
-      console.error('Error creating session:', error);
+      console.error('Error creating or fetching session:', error);
     }
   };
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !user) return;
 
-    // Check if user has required API key for chat
     if (!hasApiKey('gemini')) {
       setShowUpgradePrompt(true);
       return;
@@ -148,22 +151,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
     setIsTyping(true);
     setIsGeneratingResponse(true);
 
-    // Save user message
     try {
       await saveMessage(userMessage);
-    } catch (error) {
-      console.error('Error saving user message:', error);
-    }
 
-    // Generate AI response using Gemini
-    try {
       const conversationHistory = messages.map(msg => ({
         role: msg.is_user ? 'user' as const : 'assistant' as const,
         content: msg.content
       }));
 
       const aiResponse = await generateAIResponse({
-        message: inputValue,
+        message: `Please provide a natural, conversational response. Do not use markdown or formatting like lists, bolding, or italics. Just talk to me. My message is: ${inputValue}`,
         conversationHistory
       });
 
@@ -172,76 +169,29 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
       }
 
       const responseText = aiResponse.response;
-      let audioUrl = '';
-      let videoUrl = '';
+      const aiMessage: Message = {
+        id: `msg_${Date.now()}_ai`,
+        session_id: sessionId,
+        content: responseText,
+        is_user: false,
+        timestamp: new Date(),
+        word_count: responseText.split(' ').length
+      };
 
-      // Generate voice response if in voice/video mode and user has ElevenLabs API key
-      if ((currentMode === 'voice' || currentMode === 'video') && hasApiKey('elevenlabs')) {
-        try {
-          setIsAiSpeaking(true);
-          const voiceResponse = await generateVoiceResponse(responseText);
-          if (voiceResponse.status === 'ready') {
-            audioUrl = voiceResponse.audioUrl;
-            // Play audio in voice mode
-            if (currentMode === 'voice' && audioRef.current) {
-              audioRef.current.src = audioUrl;
-              audioRef.current.onended = () => setIsAiSpeaking(false);
-              audioRef.current.play().catch(console.error);
-            }
-          }
-        } catch (error) {
-          console.error('Error generating voice:', error);
-          setIsAiSpeaking(false);
-        }
+      setMessages(prev => [...prev, aiMessage]);
+      setIsTyping(false);
+      setIsGeneratingResponse(false);
+
+      await saveMessage(aiMessage);
+
+      if (onNewMessage) {
+        onNewMessage(aiMessage);
       }
-
-      // Generate video response if in video mode and user has access
-      if (currentMode === 'video' && canAccessFeature('video')) {
-        try {
-          const videoResponse = await generateVideoResponse(responseText);
-          if (videoResponse.status === 'ready') {
-            videoUrl = videoResponse.videoUrl;
-          }
-        } catch (error) {
-          console.error('Error generating video:', error);
-        }
-      }
-
-      // Simulate AI thinking time
-      setTimeout(async () => {
-        const aiMessage: Message = {
-          id: `msg_${Date.now()}_ai`,
-          session_id: sessionId,
-          content: responseText,
-          is_user: false,
-          timestamp: new Date(),
-          audio_url: audioUrl || undefined,
-          video_url: videoUrl || undefined,
-          word_count: responseText.split(' ').length
-        };
-
-        setMessages(prev => [...prev, aiMessage]);
-        setIsTyping(false);
-        setIsGeneratingResponse(false);
-
-        // Save AI response
-        try {
-          await saveMessage(aiMessage);
-        } catch (error) {
-          console.error('Error saving AI message:', error);
-        }
-
-        if (onNewMessage) {
-          onNewMessage(aiMessage);
-        }
-      }, 1000 + Math.random() * 1000);
-
     } catch (error) {
       console.error('Error generating AI response:', error);
       setIsTyping(false);
       setIsGeneratingResponse(false);
 
-      // Show error message to user
       const errorMessage: Message = {
         id: `msg_${Date.now()}_error`,
         session_id: sessionId,
@@ -343,8 +293,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
                     try {
                       await saveMessage(userMessage);
 
+                      // Fix type error in conversationHistory
                       const conversationHistory = messages.map(msg => ({
-                        role: msg.is_user ? 'user' as const : 'assistant' as const,
+                        role: msg.is_user ? ('user' as const) : ('assistant' as const), // Explicitly cast to 'user' | 'assistant'
                         content: msg.content
                       }));
 
