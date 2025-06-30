@@ -412,7 +412,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
       if (error instanceof DOMException) {
         switch (error.name) {
           case 'NotAllowedError':
-            alert("Please allow microphone access to use voice features. You can change this in your browser settings.");
+            // Request microphone access again
+            try {
+              await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (permError) {
+              alert("To use voice features, click the microphone icon in your browser's address bar and allow access.");
+            }
             break;
           case 'NotFoundError':
             alert("No microphone found. Please connect a microphone and try again.");
@@ -421,10 +426,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
             alert("Cannot access your microphone. It may be in use by another application.");
             break;
           case 'SecurityError':
-            alert("Microphone access is blocked by your browser's security settings.");
+            // Trigger browser's permission prompt
+            try {
+              await navigator.permissions.query({ name: 'microphone' as PermissionName });
+            } catch (permError) {
+              alert("Microphone access is blocked. Please check your browser settings.");
+            }
             break;
           default:
-            alert("Microphone access error: " + error.message);
+            alert("Unexpected error while accessing microphone. Please check your device settings.");
         }
       } else {
         alert("Unexpected error while accessing microphone. Please check your device settings.");
