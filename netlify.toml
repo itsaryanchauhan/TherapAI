@@ -1,8 +1,12 @@
 [build]
   base = "frontend"
-  command = "npm run build"
+  command = "rm -rf node_modules package-lock.json && npm install --legacy-peer-deps && npm run build"
   publish = "dist"
   functions = "../backend/netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "18"
+  NPM_FLAGS = "--legacy-peer-deps"
 
 [build.environment]
   NODE_VERSION = "18"

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Mic, MicOff, Video, VideoOff, Phone, PhoneOff, Volume2, VolumeX } from 'lucide-react';
-import { useSubscription } from '../contexts/SubscriptionContext';
+import { useSettings } from '../contexts/SettingsContext';
 import { useTheme } from '../contexts/ThemeContext';
 import UpgradePrompt from './UpgradePrompt';
 import toast from 'react-hot-toast';
@@ -14,7 +14,7 @@ interface VoiceVideoCallProps {
 }
 
 const VoiceVideoCall: React.FC<VoiceVideoCallProps> = ({ isOpen, onClose, mode, sessionId }) => {
-    const { canAccessFeature } = useSubscription();
+    const { hasApiKey } = useSettings();
     const { isDark } = useTheme();
     const [isConnected, setIsConnected] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
@@ -31,8 +31,9 @@ const VoiceVideoCall: React.FC<VoiceVideoCallProps> = ({ isOpen, onClose, mode, 
 
     useEffect(() => {
         if (isOpen) {
-            // Check if user can access the feature
-            const hasAccess = canAccessFeature(mode);
+            // Check if user has the required API key
+            const requiredApiKey = mode === 'voice' ? 'elevenlabs' : 'tavus';
+            const hasAccess = hasApiKey(requiredApiKey);
             if (!hasAccess) {
                 setShowUpgrade(true);
                 return;
@@ -242,8 +243,8 @@ const VoiceVideoCall: React.FC<VoiceVideoCallProps> = ({ isOpen, onClose, mode, 
                         {/* Connection Status */}
                         <div className="absolute top-4 left-4">
                             <div className={`px-3 py-1 rounded-full text-sm font-medium ${isConnected
-                                    ? 'bg-green-500 text-white'
-                                    : 'bg-red-500 text-white'
+                                ? 'bg-green-500 text-white'
+                                : 'bg-red-500 text-white'
                                 }`}>
                                 {isConnected ? 'Connected' : 'Connecting...'}
                             </div>

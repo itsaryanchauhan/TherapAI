@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Message } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-import { useSubscription } from '../contexts/SubscriptionContext';
+import { useSettings } from '../contexts/SettingsContext';
 import MessageBubble from './MessageBubble';
 import TypingIndicator from './TypingIndicator';
 import UpgradePrompt from './UpgradePrompt';
@@ -36,15 +36,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
   const [sessionId, setSessionId] = useState<string>('');
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  
+
   const { isDark } = useTheme();
   const { user } = useAuth();
-  const { canAccessFeature } = useSubscription();
+  const { hasApiKey, getMissingKeys } = useSettings();
+
+  // Helper function to check if user can access a feature based on API keys
+  const canAccessFeature = (feature: 'voice' | 'video') => {
+    if (feature === 'voice') {
+      return hasApiKey('elevenlabs');
+    } else if (feature === 'video') {
+      return hasApiKey('tavus');
+    }
+    return false;
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -81,7 +91,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
       "Your feelings are completely valid. The startup world often glorifies the struggle without acknowledging the real emotional toll. How are you taking care of your mental health during this challenging time?",
       "I understand this feels insurmountable right now. Sometimes the best strategy is to focus on what you can control today. What's one small step you could take that would make you feel more grounded?"
     ];
-    
+
     return responses[Math.floor(Math.random() * responses.length)];
   };
 
@@ -154,7 +164,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
       setMessages(prev => [...prev, aiResponse]);
       setIsTyping(false);
       setIsGeneratingResponse(false);
-      
+
       // Save AI response
       try {
         await saveMessage(aiResponse);
@@ -233,13 +243,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
   };
 
   return (
-    <div className={`flex flex-col h-full transition-colors duration-300 ${
-      isDark ? 'bg-gray-900' : 'bg-white'
-    }`}>
-      {/* Mode Selector */}
-      <div className={`border-b p-4 transition-colors duration-300 ${
-        isDark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'
+    <div className={`flex flex-col h-full transition-colors duration-300 ${isDark ? 'bg-gray-900' : 'bg-white'
       }`}>
+      {/* Mode Selector */}
+      <div className={`border-b p-4 transition-colors duration-300 ${isDark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'
+        }`}>
         <div className="flex items-center justify-center space-x-2">
           {[
             { mode: 'chat' as ChatMode, icon: MessageSquare, label: 'Chat' },
@@ -251,13 +259,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => handleModeChange(mode)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${
-                currentMode === mode
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${currentMode === mode
                   ? 'bg-blue-500 text-white shadow-lg'
                   : isDark
-                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              } ${!canAccessFeature(mode === 'voice' ? 'voice' : mode === 'video' ? 'video' : 'voice') && mode !== 'chat' ? 'opacity-50' : ''}`}
+                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                } ${!canAccessFeature(mode === 'voice' ? 'voice' : mode === 'video' ? 'video' : 'voice') && mode !== 'chat' ? 'opacity-50' : ''}`}
             >
               <Icon className="w-4 h-4" />
               <span className="text-sm font-medium">{label}</span>
@@ -276,52 +283,49 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
             <MessageBubble key={message.id} message={message} mode={currentMode} />
           ))}
         </AnimatePresence>
-        
+
         {isTyping && <TypingIndicator />}
-        
+
         {isGeneratingResponse && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className={`flex justify-start`}
           >
-            <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
-              isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-            }`}>
+            <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
+              }`}>
               <div className="flex items-center space-x-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                 <span className="text-sm">
-                  {currentMode === 'video' ? 'Generating video response...' : 
-                   currentMode === 'voice' ? 'Generating voice response...' : 
-                   'Thinking...'}
+                  {currentMode === 'video' ? 'Generating video response...' :
+                    currentMode === 'voice' ? 'Generating voice response...' :
+                      'Thinking...'}
                 </span>
               </div>
             </div>
           </motion.div>
         )}
-        
+
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input Area */}
-      <div className={`border-t p-4 transition-colors duration-300 ${
-        isDark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'
-      }`}>
+      <div className={`border-t p-4 transition-colors duration-300 ${isDark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'
+        }`}>
         <div className="flex items-center space-x-3">
           {/* Voice Recording */}
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={toggleRecording}
-            className={`p-3 rounded-full transition-all duration-200 ${
-              isRecording
+            className={`p-3 rounded-full transition-all duration-200 ${isRecording
                 ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse shadow-lg'
                 : canAccessFeature('voice')
-                ? isDark
-                  ? 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-                  : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
-                : 'bg-gray-300 text-gray-400 cursor-not-allowed'
-            }`}
+                  ? isDark
+                    ? 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                    : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                  : 'bg-gray-300 text-gray-400 cursor-not-allowed'
+              }`}
             title={isRecording ? 'Stop recording' : 'Start voice recording'}
             disabled={!canAccessFeature('voice')}
           >
@@ -337,27 +341,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Share what's on your mind..."
-              className={`w-full px-4 py-3 pr-12 rounded-2xl border focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
-                isDark
+              className={`w-full px-4 py-3 pr-12 rounded-2xl border focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${isDark
                   ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
                   : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-              }`}
+                }`}
               disabled={isGeneratingResponse}
             />
-            
+
             {/* Send Button */}
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={handleSendMessage}
               disabled={!inputValue.trim() || isGeneratingResponse}
-              className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-full transition-all duration-200 ${
-                inputValue.trim() && !isGeneratingResponse
+              className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-full transition-all duration-200 ${inputValue.trim() && !isGeneratingResponse
                   ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-lg'
                   : isDark
-                  ? 'bg-gray-600 text-gray-400'
-                  : 'bg-gray-200 text-gray-400'
-              } disabled:cursor-not-allowed`}
+                    ? 'bg-gray-600 text-gray-400'
+                    : 'bg-gray-200 text-gray-400'
+                } disabled:cursor-not-allowed`}
             >
               <Send className="w-4 h-4" />
             </motion.button>
@@ -366,7 +368,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
       </div>
 
       {/* Upgrade Prompt Modal */}
-      <UpgradePrompt 
+      <UpgradePrompt
         isOpen={showUpgradePrompt}
         onClose={() => setShowUpgradePrompt(false)}
       />

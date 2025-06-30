@@ -4,7 +4,7 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { SubscriptionProvider } from './contexts/SubscriptionContext';
+import { SettingsProvider } from './contexts/SettingsContext';
 import LoginPage from './components/LoginPage';
 import ChatInterface from './components/ChatInterface';
 import Dashboard from './components/Dashboard';
@@ -36,9 +36,8 @@ const AppContent: React.FC = () => {
   // Show loading screen
   if (isLoading) {
     return (
-      <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
-        isDark ? 'bg-gray-900' : 'bg-gray-50'
-      }`}>
+      <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${isDark ? 'bg-gray-900' : 'bg-gray-50'
+        }`}>
         <motion.div className="text-center max-w-md mx-auto p-6">
           <motion.div
             animate={{ rotate: 360 }}
@@ -59,13 +58,11 @@ const AppContent: React.FC = () => {
   // Show error screen with option to continue as guest
   if (error && !user) {
     return (
-      <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
-        isDark ? 'bg-gray-900' : 'bg-gray-50'
-      }`}>
+      <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${isDark ? 'bg-gray-900' : 'bg-gray-50'
+        }`}>
         <div className="text-center max-w-md mx-auto p-6">
-          <div className={`p-4 rounded-lg mb-4 ${
-            isDark ? 'bg-red-900/20 border border-red-800' : 'bg-red-50 border border-red-200'
-          }`}>
+          <div className={`p-4 rounded-lg mb-4 ${isDark ? 'bg-red-900/20 border border-red-800' : 'bg-red-50 border border-red-200'
+            }`}>
             <p className={`text-sm ${isDark ? 'text-red-400' : 'text-red-700'}`}>
               Connection issue: {error}
             </p>
@@ -95,18 +92,16 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className={`h-screen flex transition-colors duration-300 ${
-      isDark ? 'bg-gray-900' : 'bg-gray-50'
-    }`}>
+    <div className={`h-screen flex transition-colors duration-300 ${isDark ? 'bg-gray-900' : 'bg-gray-50'
+      }`}>
       {/* Mobile Menu Button */}
       {isMobile && (
         <motion.button
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className={`fixed top-4 left-4 z-50 p-3 rounded-xl transition-all duration-200 ${
-            isDark ? 'bg-gray-800 text-white shadow-lg' : 'bg-white text-gray-900 shadow-lg'
-          }`}
+          className={`fixed top-4 left-4 z-50 p-3 rounded-xl transition-all duration-200 ${isDark ? 'bg-gray-800 text-white shadow-lg' : 'bg-white text-gray-900 shadow-lg'
+            }`}
         >
           {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </motion.button>
@@ -114,13 +109,11 @@ const AppContent: React.FC = () => {
 
       {/* Sidebar */}
       <AnimatePresence>
-        <div className={`${
-          isMobile 
-            ? `fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ${
-                isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-              }`
+        <div className={`${isMobile
+            ? `fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+            }`
             : ''
-        }`}>
+          }`}>
           <Sidebar
             currentView={currentView}
             onViewChange={(view) => {
@@ -128,7 +121,7 @@ const AppContent: React.FC = () => {
               if (isMobile) setIsSidebarOpen(false);
             }}
             isCollapsed={false}
-            onToggleCollapse={() => {}}
+            onToggleCollapse={() => { }}
           />
         </div>
       </AnimatePresence>
@@ -168,9 +161,9 @@ function App() {
     <Router>
       <ThemeProvider>
         <AuthProvider>
-          <SubscriptionProvider>
+          <SettingsProvider>
             <AppContent />
-          </SubscriptionProvider>
+          </SettingsProvider>
         </AuthProvider>
       </ThemeProvider>
     </Router>
