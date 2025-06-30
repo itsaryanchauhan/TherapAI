@@ -12,6 +12,9 @@ const CommunityPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isPosting, setIsPosting] = useState(false);
   const [showNewPostForm, setShowNewPostForm] = useState(false);
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
+  const [commentTexts, setCommentTexts] = useState<Record<string, string>>({});
+  const [isCommenting, setIsCommenting] = useState<Record<string, boolean>>({});
   const { isDark } = useTheme();
   const { user } = useAuth();
 
@@ -50,15 +53,86 @@ const CommunityPage: React.FC = () => {
     }
   };
 
-  const handleReaction = async (postId: string, reactionType: 'thumbs_up' | 'handshake' | 'comment') => {
+  const handleReaction = async (e: React.MouseEvent, postId: string, reactionType: 'thumbs_up' | 'handshake' | 'comment') => {
+    e.preventDefault();
+    e.stopPropagation();
+
     if (!user) return;
 
+    // For comment reaction, toggle comment section instead of just incrementing
+    if (reactionType === 'comment') {
+      setExpandedComments(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(postId)) {
+          newSet.delete(postId);
+        } else {
+          newSet.add(postId);
+        }
+        return newSet;
+      });
+      return;
+    }
+
     try {
+      // Optimistically update the UI
+      setPosts(prevPosts =>
+        prevPosts.map(post => {
+          if (post.id === postId) {
+            const wasActive = post.user_reaction === reactionType;
+            const newReactions = { ...post.reactions };
+
+            if (wasActive) {
+              // Remove reaction
+              newReactions[reactionType] = Math.max(0, newReactions[reactionType] - 1);
+            } else {
+              // Add reaction (and remove previous reaction if exists)
+              if (post.user_reaction && post.user_reaction !== reactionType) {
+                newReactions[post.user_reaction] = Math.max(0, newReactions[post.user_reaction] - 1);
+              }
+              newReactions[reactionType] = newReactions[reactionType] + 1;
+            }
+
+            return {
+              ...post,
+              user_reaction: wasActive ? null : reactionType,
+              reactions: newReactions
+            };
+          }
+          return post;
+        })
+      );
+
       await reactToPost(postId, user.id, reactionType);
-      // Refresh posts to get updated reaction counts
+      // Refresh posts to get accurate data from server
       await loadCommunityPosts();
     } catch (error) {
       console.error('Error reacting to post:', error);
+      // Revert optimistic update on error
+      await loadCommunityPosts();
+    }
+  };
+
+  const handleAddComment = async (postId: string) => {
+    const commentText = commentTexts[postId]?.trim();
+    if (!commentText || !user) return;
+
+    try {
+      setIsCommenting(prev => ({ ...prev, [postId]: true }));
+
+      // Here you would implement the actual comment creation
+      // For now, we'll just simulate it
+      console.log('Adding comment:', commentText, 'to post:', postId);
+
+      // Clear the comment text
+      setCommentTexts(prev => ({ ...prev, [postId]: '' }));
+
+      // You would typically call an API here to save the comment
+      // await createComment(postId, user.id, commentText);
+
+    } catch (error) {
+      console.error('Error adding comment:', error);
+    } finally {
+      setIsCommenting(prev => ({ ...prev, [postId]: false }));
     }
   };
 
@@ -128,8 +202,8 @@ const CommunityPage: React.FC = () => {
                 onChange={(e) => setNewPost(e.target.value)}
                 placeholder="What's on your mind? Share your struggles, victories, or advice..."
                 className={`w-full h-32 p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 ${isDark
-                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
                   }`}
               />
               <div className="flex items-center justify-between mt-4">
@@ -211,12 +285,12 @@ const CommunityPage: React.FC = () => {
                       key={reactionType}
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
-                      onClick={() => handleReaction(post.id, reactionType)}
+                      onClick={(e) => handleReaction(e, post.id, reactionType)}
                       className={`flex items-center space-x-1 px-3 py-1 rounded-full transition-colors duration-200 ${isActive
-                          ? 'bg-blue-500 text-white'
-                          : isDark
-                            ? 'text-gray-400 hover:bg-gray-700'
-                            : 'text-gray-600 hover:bg-gray-100'
+                        ? 'bg-blue-500 text-white'
+                        : isDark
+                          ? 'text-gray-400 hover:bg-gray-700'
+                          : 'text-gray-600 hover:bg-gray-100'
                         }`}
                     >
                       <Icon className="w-4 h-4" />
@@ -225,6 +299,65 @@ const CommunityPage: React.FC = () => {
                   );
                 })}
               </div>
+
+              {/* Comment Section */}
+              <AnimatePresence>
+                {expandedComments.has(post.id) && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className={`mt-4 pt-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}
+                  >
+                    {/* Comment Input */}
+                    <div className="flex space-x-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${isDark ? 'bg-gray-600 text-white' : 'bg-gray-300 text-gray-700'}`}>
+                        {user?.full_name?.charAt(0) || 'A'}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex space-x-2">
+                          <input
+                            type="text"
+                            value={commentTexts[post.id] || ''}
+                            onChange={(e) => setCommentTexts(prev => ({ ...prev, [post.id]: e.target.value }))}
+                            placeholder="Add a supportive comment..."
+                            className={`flex-1 px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${isDark
+                              ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                              : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                              }`}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleAddComment(post.id);
+                              }
+                            }}
+                          />
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => handleAddComment(post.id)}
+                            disabled={!commentTexts[post.id]?.trim() || isCommenting[post.id]}
+                            className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                          >
+                            {isCommenting[post.id] ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            ) : (
+                              <Send className="w-4 h-4" />
+                            )}
+                          </motion.button>
+                        </div>
+
+                        {/* Sample Comments (since we don't have comment storage yet) */}
+                        <div className="mt-3 space-y-3">
+                          <div className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                            Comments feature is being enhanced. Currently showing reactions only.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           ))}
         </div>

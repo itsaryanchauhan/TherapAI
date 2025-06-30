@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, Video, VideoOff, MessageSquare, Phone, Monitor } from 'lucide-react';
+import { Send, Mic, MicOff, MessageSquare, Phone, Monitor } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Message } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
@@ -12,6 +12,14 @@ import { generateVoiceResponse, transcribeAudio } from '../services/elevenlabs';
 import { generateVideoResponse } from '../services/tavus';
 import { generateAIResponse } from '../services/gemini';
 import { saveMessage, createSession } from '../services/supabase';
+
+// Extend Window interface for Web Speech API
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
 
 type ChatMode = 'chat' | 'voice' | 'video';
 
@@ -34,6 +42,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   const inputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const recognitionRef = useRef<any>(null);
 
   const { isDark } = useTheme();
   const { user } = useAuth();
@@ -42,7 +51,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   // Helper function to check if user can access a feature based on API keys
   const canAccessFeature = (feature: 'voice' | 'video') => {
     if (feature === 'voice') {
-      return hasApiKey('elevenlabs');
+      // Web Speech API doesn't require API key, but check if it's supported
+      const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+      return !!SpeechRecognition || hasApiKey('elevenlabs'); // Fallback to ElevenLabs if Web Speech API not available
     } else if (feature === 'video') {
       return hasApiKey('tavus');
     }
@@ -236,37 +247,88 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   };
 
   const startRecording = async () => {
-    if (!canAccessFeature('voice')) {
+    // Check if Web Speech API is supported first, no API key needed
+    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition && !hasApiKey('elevenlabs')) {
       setShowUpgradePrompt(true);
       return;
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
+      if (!SpeechRecognition) {
+        console.error('Speech recognition not supported in this browser');
+        // Fallback to MediaRecorder for unsupported browsers
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
 
-      mediaRecorder.ondataavailable = (event) => {
-        audioChunksRef.current.push(event.data);
+        mediaRecorder.ondataavailable = (event) => {
+          audioChunksRef.current.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+          const transcription = await transcribeAudio(audioBlob);
+          setInputValue(transcription);
+          stream.getTracks().forEach(track => track.stop());
+        };
+
+        mediaRecorder.start();
+        setIsRecording(true);
+        return;
+      }
+
+      // Use Web Speech API
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+        console.log('Speech recognition started');
       };
 
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-        const transcription = await transcribeAudio(audioBlob);
-        setInputValue(transcription);
-        stream.getTracks().forEach(track => track.stop());
+      recognition.onresult = (event: any) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            transcript += result[0].transcript;
+          }
+        }
+
+        if (transcript) {
+          setInputValue(prev => prev + transcript + ' ');
+        }
       };
 
-      mediaRecorder.start();
-      setIsRecording(true);
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsRecording(false);
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+        console.log('Speech recognition ended');
+      };
+
+      recognition.start();
     } catch (error) {
       console.error('Error starting recording:', error);
+      setIsRecording(false);
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (recognitionRef.current && isRecording) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+    } else if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
@@ -411,7 +473,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
                   : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
                 : 'bg-gray-300 text-gray-400 cursor-not-allowed'
               }`}
-            title={isRecording ? 'Stop recording' : canAccessFeature('voice') ? 'Start voice recording' : 'ElevenLabs API key required'}
+            title={isRecording ? 'Stop recording' : canAccessFeature('voice') ? 'Start voice recording' : 'Speech recognition not supported in your browser'}
             disabled={!canAccessFeature('voice')}
           >
             {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
