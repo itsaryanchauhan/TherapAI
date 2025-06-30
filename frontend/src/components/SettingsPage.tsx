@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { Key, Save, Eye, EyeOff, AlertCircle, CheckCircle, Settings as SettingsIcon, Trash2 } from 'lucide-react';
+import { Key, Save, Eye, EyeOff, AlertCircle, CheckCircle, Settings as SettingsIcon, Trash2, TestTube } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { API_SERVICES } from '../services/apiKeys';
+import { generateAIResponse } from '../services/gemini';
 
 const SettingsPage: React.FC = () => {
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [tempKeys, setTempKeys] = useState<Record<string, string>>({});
   const [savedKeys, setSavedKeys] = useState<Record<string, boolean>>({});
+  const [testingKeys, setTestingKeys] = useState<Record<string, boolean>>({});
+  const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
 
   const { isDark } = useTheme();
   const { user } = useAuth();
@@ -47,6 +50,40 @@ const SettingsPage: React.FC = () => {
     if (!key) return '';
     if (showKeys[service]) return key;
     return key.slice(0, 8) + '••••••••' + key.slice(-4);
+  };
+
+  const handleTestKey = async (service: keyof typeof apiKeys) => {
+    if (service !== 'gemini') return; // Only support Gemini testing for now
+
+    setTestingKeys(prev => ({ ...prev, [service]: true }));
+    const newTestResults = { ...testResults };
+    delete newTestResults[service];
+    setTestResults(newTestResults);
+
+    try {
+      const response = await generateAIResponse({
+        message: "Hello, this is a test message."
+      });
+
+      if (response.success) {
+        setTestResults(prev => ({
+          ...prev,
+          [service]: { success: true, message: "API key is working correctly!" }
+        }));
+      } else {
+        setTestResults(prev => ({
+          ...prev,
+          [service]: { success: false, message: response.error || "API test failed" }
+        }));
+      }
+    } catch (error) {
+      setTestResults(prev => ({
+        ...prev,
+        [service]: { success: false, message: error instanceof Error ? error.message : "Unknown error occurred" }
+      }));
+    } finally {
+      setTestingKeys(prev => ({ ...prev, [service]: false }));
+    }
   };
 
   return (
@@ -181,7 +218,37 @@ const SettingsPage: React.FC = () => {
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
+                            {serviceKey === 'gemini' && (
+                              <button
+                                onClick={() => handleTestKey(typedServiceKey)}
+                                disabled={testingKeys[serviceKey]}
+                                className={`p-2 rounded border transition-colors ${testingKeys[serviceKey]
+                                  ? 'border-gray-400 text-gray-400 cursor-not-allowed'
+                                  : 'border-green-500 text-green-500 hover:bg-green-500 hover:text-white'
+                                  }`}
+                                title="Test API key"
+                              >
+                                {testingKeys[serviceKey] ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                                ) : (
+                                  <TestTube className="w-4 h-4" />
+                                )}
+                              </button>
+                            )}
                           </div>
+                          {testResults[serviceKey] && (
+                            <div className={`text-xs flex items-center space-x-2 mt-2 ${testResults[serviceKey].success
+                              ? isDark ? 'text-green-400' : 'text-green-600'
+                              : isDark ? 'text-red-400' : 'text-red-600'
+                              }`}>
+                              {testResults[serviceKey].success ? (
+                                <CheckCircle className="w-4 h-4" />
+                              ) : (
+                                <AlertCircle className="w-4 h-4" />
+                              )}
+                              <span>{testResults[serviceKey].message}</span>
+                            </div>
+                          )}
 
                           {/* Update section */}
                           <div className="pt-2 border-t border-gray-200 dark:border-gray-600">

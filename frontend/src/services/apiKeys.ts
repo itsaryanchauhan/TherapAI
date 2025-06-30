@@ -65,8 +65,8 @@ export class ApiKeyManager {
 
         switch (service) {
             case 'gemini':
-                // Gemini keys typically start with 'AI' and are about 40 characters
-                return key.length > 20 && key.length < 100;
+                // Gemini keys typically start with 'AIza' and are about 39 characters
+                return key.startsWith('AIza') && key.length >= 35 && key.length <= 45;
 
             case 'elevenlabs':
                 // ElevenLabs keys are typically 32 characters

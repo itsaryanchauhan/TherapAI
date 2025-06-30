@@ -63,6 +63,27 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
     }
   }, [user]);
 
+  // Separate effect to add welcome message when API key is added
+  useEffect(() => {
+    if (user && sessionId && hasApiKey('gemini') && messages.length === 0) {
+      const welcomeMessage: Message = {
+        id: `msg_${Date.now()}_welcome`,
+        session_id: sessionId,
+        content: "Hello! I'm TherapAI, your personal AI therapist designed specifically for startup founders and entrepreneurs. I understand the unique emotional challenges you face while building your business.\n\nI'm here to listen without judgment, help you process stress and anxiety, work through difficult decisions, and provide support during both the highs and lows of your entrepreneurial journey.\n\nWhat's on your mind today? Feel free to share anything that's affecting you - whether it's about your business, personal struggles, or anything else you'd like to talk through.",
+        is_user: false,
+        timestamp: new Date(),
+        word_count: 85
+      };
+
+      setMessages([welcomeMessage]);
+
+      // Save welcome message
+      saveMessage(welcomeMessage).catch(error => {
+        console.error('Error saving welcome message:', error);
+      });
+    }
+  }, [user, sessionId, hasApiKey('gemini'), messages.length]);
+
   const initializeSession = async () => {
     if (!user) return;
     try {
