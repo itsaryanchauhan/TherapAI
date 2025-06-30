@@ -61,17 +61,17 @@ TherapAI is a comprehensive mental health platform that combines artificial inte
 #### Step 2: Configure Environment Variables
 In Netlify Dashboard → Site Settings → Environment Variables:
 
-**Frontend Variables:**
+**Frontend Variables (Public - Safe to expose):**
 ```bash
 VITE_SUPABASE_URL=your_supabase_url_here
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
-VITE_GEMINI_API_KEY=your_gemini_api_key_here
-VITE_ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
-VITE_TAVUS_API_KEY=your_tavus_api_key_here
 VITE_REVENUECAT_PUBLIC_KEY=your_revenuecat_public_key_here
+
+# For Netlify: API is on same domain as frontend
+VITE_BACKEND_URL=/api
 ```
 
-**Backend Variables (for Functions):**
+**Backend Variables (Private - Keep secret!):**
 ```bash
 SUPABASE_URL=your_supabase_url_here
 SUPABASE_SERVICE_KEY=your_supabase_service_key_here
@@ -80,6 +80,9 @@ ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
 TAVUS_API_KEY=your_tavus_api_key_here
 REVENUECAT_API_KEY=your_revenuecat_secret_key_here
 JWT_SECRET=your_generated_jwt_secret
+
+# CORS setup - replace with your actual Netlify URL
+FRONTEND_URL=https://your-therapai-site.netlify.app
 ```
 
 ### Step 3: Database Setup
@@ -101,6 +104,44 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 ### Step 5: Launch! 🚀
 Your TherapAI startup is now live at: `https://your-site.netlify.app`
+
+### 📋 **Deployment Checklist**
+
+#### Before Deployment:
+1. ✅ Set `VITE_BACKEND_URL=/api` in Netlify environment variables
+2. ✅ Set `FRONTEND_URL=https://your-actual-domain.netlify.app` in backend
+3. ✅ Update Supabase CORS settings to allow your Netlify domain
+4. ✅ Test API calls work with relative URLs
+
+#### After Deployment:
+1. 🌐 Note your Netlify URL (e.g., `https://amazing-therapai-123.netlify.app`)
+2. 🔧 Update `FRONTEND_URL` in backend environment with actual URL
+3. 🔄 Redeploy to apply CORS changes
+4. ✅ Test all features work on live site
+
+## 🌐 **Netlify URL Structure**
+
+### How It Works:
+```
+Your TherapAI Domain: https://therapai.netlify.app
+├── Frontend: https://therapai.netlify.app (React app)
+└── Backend API: https://therapai.netlify.app/api/* (Serverless functions)
+```
+
+### Environment Variables:
+```bash
+# Development (local)
+VITE_BACKEND_URL=http://localhost:3001/api
+
+# Production (Netlify)  
+VITE_BACKEND_URL=/api  # Relative URL - same domain!
+```
+
+### Why `/api` instead of full URL?
+- **Same Domain**: Frontend and backend on same Netlify site
+- **No CORS Issues**: Same-origin requests
+- **Simpler**: No need to hardcode domain names
+- **SSL Automatic**: HTTPS everywhere
 
 ## 📊 Business Model
 
@@ -187,6 +228,28 @@ TherapAI/
 - CORS protection
 - Input validation and sanitization
 - SQL injection prevention
+
+## 🔒 **Critical Security Note**
+
+**❌ NEVER put secret API keys in frontend code!**
+
+### Why?
+- Frontend code is **public** - anyone can see it
+- API keys in frontend = **instant security breach**
+- Hackers can steal your keys and rack up charges
+
+### Correct Architecture:
+```
+Frontend (Public)     Backend (Private)
+├── Supabase URL      ├── Gemini API Key  
+├── Anon Key          ├── ElevenLabs Key
+└── RevenueCat Public └── All Secret Keys
+```
+
+### How TherapAI Works Securely:
+1. **Frontend** calls your backend API
+2. **Backend** uses secret keys to call AI services
+3. **Never expose** secret keys to users
 
 ## 🚀 Scaling Strategy
 
