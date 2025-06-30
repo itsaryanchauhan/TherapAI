@@ -396,54 +396,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
     }
 
     try {
-      console.log("Requesting microphone permission...");
-      const stream = await getLocalStream();
+      // Simply request microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log("Microphone access granted");
       
-      // Test the stream to ensure it's working
-      const audioTracks = stream.getAudioTracks();
-      console.log("Audio tracks available:", audioTracks.length);
-      console.log("Audio track settings:", audioTracks[0].getSettings());
-      
-      // ✅ Mic access granted, now proceed
-      console.log("Microphone permission granted, starting recording...");
+      // Store the stream and start recording
+      window.localStream = stream;
       startRecording();
-    } catch (error: any) {
-      console.error("Mic access error:", error);
-      if (error instanceof DOMException) {
-        switch (error.name) {
-          case 'NotAllowedError':
-            // Request microphone access again
-            try {
-              await navigator.mediaDevices.getUserMedia({ audio: true });
-            } catch (permError) {
-              alert("To use voice features, click the microphone icon in your browser's address bar and allow access.");
-            }
-            break;
-          case 'NotFoundError':
-            alert("No microphone found. Please connect a microphone and try again.");
-            break;
-          case 'NotReadableError':
-            alert("Cannot access your microphone. It may be in use by another application.");
-            break;
-          case 'SecurityError':
-            // Trigger browser's permission prompt
-            try {
-              await navigator.permissions.query({ name: 'microphone' as PermissionName });
-            } catch (permError) {
-              alert("Microphone access is blocked. Please check your browser settings.");
-            }
-            break;
-          default:
-            alert("Unexpected error while accessing microphone. Please check your device settings.");
-        }
-      } else {
-        alert("Unexpected error while accessing microphone. Please check your device settings.");
-      }
-      console.log("Microphone access failed, error details:", {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      });
+    } catch (error) {
+      console.error("Could not access microphone:", error);
     }
   };
 
