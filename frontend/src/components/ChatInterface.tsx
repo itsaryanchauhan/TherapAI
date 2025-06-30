@@ -10,25 +10,18 @@ import TypingIndicator from './TypingIndicator';
 import UpgradePrompt from './UpgradePrompt';
 import { generateVoiceResponse, transcribeAudio } from '../services/elevenlabs';
 import { generateVideoResponse } from '../services/tavus';
+import { generateAIResponse } from '../services/gemini';
 import { saveMessage, createSession } from '../services/supabase';
 
 type ChatMode = 'chat' | 'voice' | 'video';
 
 interface ChatInterfaceProps {
   onNewMessage?: (message: Message) => void;
+  onNavigateToSettings?: () => void;
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      session_id: 'initial',
-      content: "Hello! I'm your AI therapist specialized in helping startup founders navigate the emotional challenges of entrepreneurship. I'm here to listen, support, and provide guidance. What's on your mind today?",
-      is_user: false,
-      timestamp: new Date(),
-      word_count: 35
-    }
-  ]);
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateToSettings }) => {
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -44,7 +37,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
 
   const { isDark } = useTheme();
   const { user } = useAuth();
-  const { hasApiKey, getMissingKeys } = useSettings();
+  const { hasApiKey } = useSettings();
 
   // Helper function to check if user can access a feature based on API keys
   const canAccessFeature = (feature: 'voice' | 'video') => {
@@ -80,23 +73,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
     }
   };
 
-  const generateTherapeuticResponse = (userMessage: string): string => {
-    const responses = [
-      "I hear the weight of responsibility in your words. Building a startup while managing your mental health is incredibly challenging. What specific aspect of this pressure feels most overwhelming right now?",
-      "It sounds like you're experiencing the classic founder's dilemma - the gap between vision and reality. This is completely normal, and many successful entrepreneurs have felt exactly what you're feeling. Let's explore what's driving these feelings.",
-      "Your vulnerability in sharing this shows real strength. The entrepreneurial journey is often isolating, but you're not alone in these struggles. What support systems do you currently have in place?",
-      "I can sense the frustration and perhaps some self-doubt. Remember, pivoting isn't failing - it's learning and adapting. What insights have you gained from this experience that you might not have seen before?",
-      "The pressure to succeed can be overwhelming, especially when it feels like everyone is watching. Let's take a step back - what originally motivated you to start this journey, and how can we reconnect with that purpose?",
-      "It's okay to feel lost sometimes. Even the most successful founders have moments of uncertainty. What would you tell a fellow founder who came to you with the same concerns?",
-      "Your feelings are completely valid. The startup world often glorifies the struggle without acknowledging the real emotional toll. How are you taking care of your mental health during this challenging time?",
-      "I understand this feels insurmountable right now. Sometimes the best strategy is to focus on what you can control today. What's one small step you could take that would make you feel more grounded?"
-    ];
-
-    return responses[Math.floor(Math.random() * responses.length)];
-  };
-
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !user) return;
+
+    // Check if user has required API key for chat
+    if (!hasApiKey('gemini')) {
+      setShowUpgradePrompt(true);
+      return;
+    }
 
     const userMessage: Message = {
       id: `msg_${Date.now()}_user`,
@@ -119,63 +103,96 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
       console.error('Error saving user message:', error);
     }
 
-    // Generate AI response
-    const responseText = generateTherapeuticResponse(inputValue);
-    let audioUrl = '';
-    let videoUrl = '';
+    // Generate AI response using Gemini
+    try {
+      const conversationHistory = messages.map(msg => ({
+        role: msg.is_user ? 'user' as const : 'assistant' as const,
+        content: msg.content
+      }));
 
-    // Generate voice response if in voice/video mode and user has access
-    if ((currentMode === 'voice' || currentMode === 'video') && canAccessFeature('voice')) {
-      try {
-        const voiceResponse = await generateVoiceResponse(responseText);
-        if (voiceResponse.status === 'ready') {
-          audioUrl = voiceResponse.audioUrl;
-        }
-      } catch (error) {
-        console.error('Error generating voice:', error);
+      const aiResponse = await generateAIResponse({
+        message: inputValue,
+        conversationHistory
+      });
+
+      if (!aiResponse.success || !aiResponse.response) {
+        throw new Error(aiResponse.error || 'Failed to generate AI response');
       }
-    }
 
-    // Generate video response if in video mode and user has access
-    if (currentMode === 'video' && canAccessFeature('video')) {
-      try {
-        const videoResponse = await generateVideoResponse(responseText);
-        if (videoResponse.status === 'ready') {
-          videoUrl = videoResponse.videoUrl;
+      const responseText = aiResponse.response;
+      let audioUrl = '';
+      let videoUrl = '';
+
+      // Generate voice response if in voice/video mode and user has access
+      if ((currentMode === 'voice' || currentMode === 'video') && canAccessFeature('voice')) {
+        try {
+          const voiceResponse = await generateVoiceResponse(responseText);
+          if (voiceResponse.status === 'ready') {
+            audioUrl = voiceResponse.audioUrl;
+          }
+        } catch (error) {
+          console.error('Error generating voice:', error);
         }
-      } catch (error) {
-        console.error('Error generating video:', error);
       }
-    }
 
-    // Simulate AI thinking time
-    setTimeout(async () => {
-      const aiResponse: Message = {
-        id: `msg_${Date.now()}_ai`,
-        session_id: sessionId,
-        content: responseText,
-        is_user: false,
-        timestamp: new Date(),
-        audio_url: audioUrl || undefined,
-        video_url: videoUrl || undefined,
-        word_count: responseText.split(' ').length
-      };
+      // Generate video response if in video mode and user has access
+      if (currentMode === 'video' && canAccessFeature('video')) {
+        try {
+          const videoResponse = await generateVideoResponse(responseText);
+          if (videoResponse.status === 'ready') {
+            videoUrl = videoResponse.videoUrl;
+          }
+        } catch (error) {
+          console.error('Error generating video:', error);
+        }
+      }
 
-      setMessages(prev => [...prev, aiResponse]);
+      // Simulate AI thinking time
+      setTimeout(async () => {
+        const aiMessage: Message = {
+          id: `msg_${Date.now()}_ai`,
+          session_id: sessionId,
+          content: responseText,
+          is_user: false,
+          timestamp: new Date(),
+          audio_url: audioUrl || undefined,
+          video_url: videoUrl || undefined,
+          word_count: responseText.split(' ').length
+        };
+
+        setMessages(prev => [...prev, aiMessage]);
+        setIsTyping(false);
+        setIsGeneratingResponse(false);
+
+        // Save AI response
+        try {
+          await saveMessage(aiMessage);
+        } catch (error) {
+          console.error('Error saving AI message:', error);
+        }
+
+        if (onNewMessage) {
+          onNewMessage(aiMessage);
+        }
+      }, 1000 + Math.random() * 1000);
+
+    } catch (error) {
+      console.error('Error generating AI response:', error);
       setIsTyping(false);
       setIsGeneratingResponse(false);
 
-      // Save AI response
-      try {
-        await saveMessage(aiResponse);
-      } catch (error) {
-        console.error('Error saving AI message:', error);
-      }
+      // Show error message to user
+      const errorMessage: Message = {
+        id: `msg_${Date.now()}_error`,
+        session_id: sessionId,
+        content: "I'm sorry, I'm having trouble generating a response right now. Please check your API key settings and try again.",
+        is_user: false,
+        timestamp: new Date(),
+        word_count: 20
+      };
 
-      if (onNewMessage) {
-        onNewMessage(aiResponse);
-      }
-    }, 2000 + Math.random() * 1000);
+      setMessages(prev => [...prev, errorMessage]);
+    }
 
     if (onNewMessage) {
       onNewMessage(userMessage);
@@ -260,10 +277,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
               whileTap={{ scale: 0.95 }}
               onClick={() => handleModeChange(mode)}
               className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${currentMode === mode
-                  ? 'bg-blue-500 text-white shadow-lg'
-                  : isDark
-                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                ? 'bg-blue-500 text-white shadow-lg'
+                : isDark
+                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
                 } ${!canAccessFeature(mode === 'voice' ? 'voice' : mode === 'video' ? 'video' : 'voice') && mode !== 'chat' ? 'opacity-50' : ''}`}
             >
               <Icon className="w-4 h-4" />
@@ -278,6 +295,53 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center justify-center h-full text-center"
+          >
+            <div className={`p-6 rounded-xl ${isDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
+              <MessageSquare className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
+              {hasApiKey('gemini') ? (
+                <>
+                  <h3 className={`text-xl font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    Welcome to TherapAI
+                  </h3>
+                  <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'} mb-4 max-w-md`}>
+                    I'm your AI therapist specialized in helping startup founders navigate the emotional challenges of entrepreneurship.
+                    I'm here to listen, support, and provide guidance. What's on your mind today?
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h3 className={`text-xl font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    API Key Required
+                  </h3>
+                  <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'} mb-4 max-w-md`}>
+                    To start chatting, you need to add your Google Gemini API key in Settings.
+                    Your API keys are stored locally and never sent to our servers.
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      if (onNavigateToSettings) {
+                        onNavigateToSettings();
+                      } else {
+                        setShowUpgradePrompt(true);
+                      }
+                    }}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                  >
+                    Configure API Key
+                  </motion.button>
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+
         <AnimatePresence>
           {messages.map((message) => (
             <MessageBubble key={message.id} message={message} mode={currentMode} />
@@ -315,18 +379,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
         <div className="flex items-center space-x-3">
           {/* Voice Recording */}
           <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
+            whileHover={{ scale: canAccessFeature('voice') ? 1.1 : 1 }}
+            whileTap={{ scale: canAccessFeature('voice') ? 0.9 : 1 }}
             onClick={toggleRecording}
             className={`p-3 rounded-full transition-all duration-200 ${isRecording
-                ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse shadow-lg'
-                : canAccessFeature('voice')
-                  ? isDark
-                    ? 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-                    : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
-                  : 'bg-gray-300 text-gray-400 cursor-not-allowed'
+              ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse shadow-lg'
+              : canAccessFeature('voice')
+                ? isDark
+                  ? 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                  : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                : 'bg-gray-300 text-gray-400 cursor-not-allowed'
               }`}
-            title={isRecording ? 'Stop recording' : 'Start voice recording'}
+            title={isRecording ? 'Stop recording' : canAccessFeature('voice') ? 'Start voice recording' : 'ElevenLabs API key required'}
             disabled={!canAccessFeature('voice')}
           >
             {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
@@ -340,12 +404,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Share what's on your mind..."
+              placeholder={hasApiKey('gemini') ? "Share what's on your mind..." : "API key required - Go to Settings"}
               className={`w-full px-4 py-3 pr-12 rounded-2xl border focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${isDark
-                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
                 }`}
-              disabled={isGeneratingResponse}
+              disabled={isGeneratingResponse || !hasApiKey('gemini')}
             />
 
             {/* Send Button */}
@@ -353,12 +417,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={handleSendMessage}
-              disabled={!inputValue.trim() || isGeneratingResponse}
-              className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-full transition-all duration-200 ${inputValue.trim() && !isGeneratingResponse
-                  ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-lg'
-                  : isDark
-                    ? 'bg-gray-600 text-gray-400'
-                    : 'bg-gray-200 text-gray-400'
+              disabled={!inputValue.trim() || isGeneratingResponse || !hasApiKey('gemini')}
+              className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-full transition-all duration-200 ${inputValue.trim() && !isGeneratingResponse && hasApiKey('gemini')
+                ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-lg'
+                : isDark
+                  ? 'bg-gray-600 text-gray-400'
+                  : 'bg-gray-200 text-gray-400'
                 } disabled:cursor-not-allowed`}
             >
               <Send className="w-4 h-4" />
@@ -371,6 +435,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage }) => {
       <UpgradePrompt
         isOpen={showUpgradePrompt}
         onClose={() => setShowUpgradePrompt(false)}
+        onGoToSettings={onNavigateToSettings}
+        feature={!hasApiKey('gemini') ? undefined : currentMode === 'voice' ? 'voice' : currentMode === 'video' ? 'video' : undefined}
       />
     </div>
   );

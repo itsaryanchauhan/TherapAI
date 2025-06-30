@@ -87,7 +87,7 @@ const AppContent: React.FC = () => {
       case 'settings':
         return <SettingsPage />;
       default:
-        return <ChatInterface />;
+        return <ChatInterface onNavigateToSettings={() => setCurrentView('settings')} />;
     }
   };
 
@@ -110,9 +110,9 @@ const AppContent: React.FC = () => {
       {/* Sidebar */}
       <AnimatePresence>
         <div className={`${isMobile
-            ? `fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-            }`
-            : ''
+          ? `fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`
+          : ''
           }`}>
           <Sidebar
             currentView={currentView}

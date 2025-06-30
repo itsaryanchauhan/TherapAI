@@ -6,10 +6,11 @@ import { useTheme } from '../contexts/ThemeContext';
 interface UpgradePromptProps {
   isOpen: boolean;
   onClose: () => void;
+  onGoToSettings?: () => void;
   feature?: 'voice' | 'video' | 'unlimited_sessions';
 }
 
-const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose, feature }) => {
+const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose, onGoToSettings, feature }) => {
   const { isDark } = useTheme();
 
   const getFeatureTitle = (feature?: string) => {
@@ -79,8 +80,8 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose, feature 
             <button
               onClick={onClose}
               className={`absolute top-4 right-4 p-2 rounded-lg transition-colors ${isDark
-                  ? 'hover:bg-gray-700 text-gray-400 hover:text-white'
-                  : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'
+                ? 'hover:bg-gray-700 text-gray-400 hover:text-white'
+                : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'
                 }`}
             >
               <X className="w-5 h-5" />
@@ -124,12 +125,14 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose, feature 
             <div className="flex space-x-3">
               <button
                 onClick={() => {
-                  // You could navigate to settings here if using a router
                   onClose();
+                  if (onGoToSettings) {
+                    onGoToSettings();
+                  }
                 }}
                 className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-lg font-medium transition-colors ${isDark
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
                   }`}
               >
                 <Settings className="w-4 h-4" />
@@ -138,8 +141,8 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose, feature 
               <button
                 onClick={onClose}
                 className={`px-4 py-3 rounded-lg font-medium transition-colors ${isDark
-                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                    : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
                   }`}
               >
                 Later
