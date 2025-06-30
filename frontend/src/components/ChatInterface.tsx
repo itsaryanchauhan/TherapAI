@@ -62,16 +62,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
 
   // Helper function to check if voice input (microphone) is available
   const canUseVoiceInput = () => {
-    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const hasSpeechAPI = !!SpeechRecognition;
-    const hasElevenLabsKey = hasApiKey('elevenlabs');
+  const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+  const hasSpeechAPI = !!SpeechRecognition;
+  const hasElevenLabsKey = hasApiKey('elevenlabs');
+  const hasMicSupport = !!navigator.mediaDevices && !!navigator.mediaDevices.getUserMedia;
 
-    if (currentMode === 'chat') {
-      return hasSpeechAPI;
-    } else {
-      return hasElevenLabsKey;
-    }
-  };
+  if (currentMode === 'chat') {
+    return hasSpeechAPI && hasMicSupport;
+  } else {
+    return hasElevenLabsKey && hasMicSupport;
+  }
+};
+
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -274,23 +276,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
       return;
     }
 
-    // Check microphone permission first
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop());
-    } catch (error) {
-      console.error('Microphone access denied:', error);
-      if (error instanceof DOMException && error.name === 'NotAllowedError') {
-        alert('Microphone access is required for voice input. Please allow microphone access and try again.');
-      } else {
-        alert('Unable to access microphone. Please check your microphone settings.');
-      }
-      return;
-    }
-
     // In voice mode, use ElevenLabs transcription
     if (currentMode === 'voice' && hasApiKey('elevenlabs')) {
       try {
+        // Permission already verified by toggleRecording, proceed directly
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
         mediaRecorderRef.current = mediaRecorder;
@@ -323,7 +312,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
         setIsRecording(true);
         return;
       } catch (error) {
-        console.error('Error starting recording:', error);
+        console.error('Error starting ElevenLabs recording:', error);
+        // Permission issues should have been caught by toggleRecording
+        // This is likely a different error (device busy, etc.)
+        alert('Unable to start recording. Please try again.');
         return;
       }
     }
@@ -334,6 +326,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
     if (!SpeechRecognition) {
       // Fallback to MediaRecorder for unsupported browsers
       try {
+        // Permission already verified by toggleRecording, proceed directly
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
         mediaRecorderRef.current = mediaRecorder;
@@ -359,7 +352,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
         mediaRecorder.start();
         setIsRecording(true);
       } catch (error) {
-        console.error('Error starting recording:', error);
+        console.error('Error starting MediaRecorder fallback:', error);
+        alert('Unable to start recording. Please try again.');
       }
       return;
     }
@@ -406,8 +400,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
 
       recognition.start();
     } catch (error) {
-      console.error('Error starting recording:', error);
+      console.error('Error starting speech recognition:', error);
       setIsRecording(false);
+      alert('Unable to start voice recognition. Please try again.');
     }
   };
 
@@ -427,26 +422,31 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
       return;
     }
 
-    if (!canUseVoiceInput()) {
-      if (currentMode === 'voice') {
-        alert('ElevenLabs API key is required for voice mode. Please add your API key in Settings.');
-      } else {
-        alert('Speech recognition is not supported in your browser.');
-      }
-      return;
-    }
-
-    // Check microphone permission before starting
+    // Always attempt mic access directly
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach(track => track.stop());
+
+      // ✅ Mic access granted, now proceed
       startRecording();
     } catch (error) {
-      console.error('Microphone permission check failed:', error);
-      if (error instanceof DOMException && error.name === 'NotAllowedError') {
-        alert('Microphone access is required for voice input. Please allow microphone access in your browser settings and try again.');
+      console.error("Mic access error:", error);
+      if (error instanceof DOMException) {
+        switch (error.name) {
+          case 'NotAllowedError':
+            alert("Microphone access denied. Please allow access in your browser.");
+            break;
+          case 'NotFoundError':
+            alert("No microphone found. Please connect a mic.");
+            break;
+          case 'NotReadableError':
+            alert("Microphone is already in use.");
+            break;
+          default:
+            alert("Microphone access error: " + error.message);
+        }
       } else {
-        alert('Unable to access microphone. Please check your microphone settings and try again.');
+        alert("Unknown error accessing microphone.");
       }
     }
   };

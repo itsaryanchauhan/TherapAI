@@ -39,6 +39,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
     const [upgradePromptFeature, setUpgradePromptFeature] = useState<'voice' | 'video' | undefined>(undefined);
     const [isAiSpeaking, setIsAiSpeaking] = useState(false);
     const [micPermissionError, setMicPermissionError] = useState<string>('');
+    const [hasTriedMicrophone, setHasTriedMicrophone] = useState(false);
+    const errorTimeoutRef = useRef<number | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -76,6 +78,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
         }
 
         return false;
+    };
+
+    const setMicPermissionErrorWithTimeout = (message: string) => {
+        // Clear any existing timeout
+        if (errorTimeoutRef.current) {
+            clearTimeout(errorTimeoutRef.current);
+        }
+        
+        setMicPermissionError(message);
+        
+        // Auto-clear error after 10 seconds unless it's a critical permission error
+        if (message && !message.includes('denied') && !message.includes('blocked')) {
+            errorTimeoutRef.current = window.setTimeout(() => {
+                setMicPermissionError('');
+            }, 10000);
+        }
     };
 
     const scrollToBottom = () => {
@@ -117,6 +135,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
             saveMessage(welcomeMessage).catch(error => console.error('Error saving welcome message:', error));
         }
     }, [user, sessionId, hasApiKey('gemini'), messages.length]);
+
+    // Cleanup timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (errorTimeoutRef.current) {
+                clearTimeout(errorTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const initializeSession = async () => {
         if (!user || sessionId) return;
@@ -252,6 +279,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
 
     const startRecording = async () => {
         try {
+            // Request microphone access - this will show the permission dialog if needed
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             setMicPermissionError('');
 
@@ -262,7 +290,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
                 const mediaRecorder = new MediaRecorder(stream);
                 mediaRecorderRef.current = mediaRecorder;
                 audioChunksRef.current = [];
+                
                 mediaRecorder.ondataavailable = event => audioChunksRef.current.push(event.data);
+                
                 mediaRecorder.onstop = async () => {
                     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
                     stream.getTracks().forEach(track => track.stop());
@@ -276,11 +306,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
                         }
                     } catch (error) {
                         console.error('Transcription failed:', error);
-                        setMicPermissionError("Transcription failed. Please check your ElevenLabs API key.");
+                        setMicPermissionErrorWithTimeout("Transcription failed. Please check your ElevenLabs API key.");
                     }
                 };
+                
+                mediaRecorder.onerror = (event) => {
+                    console.error('MediaRecorder error:', event);
+                    setMicPermissionErrorWithTimeout("Recording failed. Please try again.");
+                    setIsRecording(false);
+                };
+                
                 mediaRecorder.start();
                 setIsRecording(true);
+                setMicPermissionError(''); // Clear any previous errors when recording starts successfully
             } else if (SpeechRecognition) {
                 const recognition = new SpeechRecognition();
                 recognitionRef.current = recognition;
@@ -288,7 +326,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
                 recognition.interimResults = true;
                 recognition.lang = 'en-US';
 
-                recognition.onstart = () => setIsRecording(true);
+                recognition.onstart = () => {
+                    setIsRecording(true);
+                    setMicPermissionError(''); // Clear any previous errors when recording starts successfully
+                };
+                
                 recognition.onresult = event => {
                     let interimTranscript = '';
                     let finalTranscript = '';
@@ -301,30 +343,74 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
                     }
                     setInputValue(finalTranscript + interimTranscript);
                 };
+                
                 recognition.onerror = event => {
                     console.error('Speech recognition error:', event.error);
-                    setMicPermissionError(`Speech recognition error: ${event.error}. Please try again.`);
+                    setIsRecording(false);
+                    
+                    // Don't show "permission denied" error if we already have microphone access
+                    // (since getUserMedia succeeded)
+                    if (event.error === 'not-allowed') {
+                        setMicPermissionErrorWithTimeout('Speech recognition is not available. Your browser may not support it or it may be disabled.');
+                    } else if (event.error === 'no-speech') {
+                        setMicPermissionErrorWithTimeout('No speech detected. Please try speaking closer to your microphone.');
+                    } else if (event.error === 'audio-capture') {
+                        setMicPermissionErrorWithTimeout('Audio capture failed. Please check your microphone connection.');
+                    } else if (event.error === 'network') {
+                        setMicPermissionErrorWithTimeout('Network error occurred during speech recognition.');
+                    } else if (event.error === 'service-not-allowed') {
+                        setMicPermissionErrorWithTimeout('Speech recognition service is not allowed or available.');
+                    } else {
+                        setMicPermissionErrorWithTimeout(`Speech recognition error: ${event.error}. Please try again.`);
+                    }
                 };
+                
                 recognition.onend = () => {
                     stream.getTracks().forEach(track => track.stop());
                     setIsRecording(false);
                 };
+                
                 recognition.start();
+            } else {
+                // Clean up the stream if no recording method is available
+                stream.getTracks().forEach(track => track.stop());
+                setMicPermissionErrorWithTimeout("Speech recognition is not supported in your browser.");
             }
         } catch (error) {
-            console.error('Microphone access denied or error:', error);
+            console.error('Microphone access error:', error);
+            setIsRecording(false);
+            
             let message = 'Could not access the microphone. Please check your hardware and browser settings.';
+            
             if (error instanceof DOMException) {
-                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-                    message = 'Microphone access was denied. Please enable it in your browser settings and refresh the page.';
-                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-                    message = 'No microphone was found. Please ensure a microphone is connected and enabled.';
-                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-                    message = 'Your microphone is currently in use by another application or the OS.';
+                switch (error.name) {
+                    case 'NotAllowedError':
+                    case 'PermissionDeniedError':
+                        message = 'Microphone access was denied. Please click "Allow" when prompted or enable microphone access in your browser settings.';
+                        break;
+                    case 'NotFoundError':
+                    case 'DevicesNotFoundError':
+                        message = 'No microphone was found. Please ensure a microphone is connected and enabled.';
+                        break;
+                    case 'NotReadableError':
+                    case 'TrackStartError':
+                        message = 'Your microphone is currently in use by another application. Please close other applications using the microphone and try again.';
+                        break;
+                    case 'OverconstrainedError':
+                        message = 'The microphone does not meet the required constraints. Please try with a different microphone.';
+                        break;
+                    case 'SecurityError':
+                        message = 'Microphone access is blocked due to security restrictions. Please ensure you\'re using HTTPS and try again.';
+                        break;
+                    case 'AbortError':
+                        message = 'Microphone access was aborted. Please try again.';
+                        break;
+                    default:
+                        message = `Microphone error (${error.name}): ${error.message || 'Unknown error occurred.'}`;
                 }
             }
+            
             setMicPermissionError(message);
-            setIsRecording(false);
         }
     };
 
@@ -339,30 +425,21 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
 
     const toggleRecording = async () => {
         setMicPermissionError('');
+        setHasTriedMicrophone(true);
+        
         if (isRecording) {
             stopRecording();
             return;
         }
 
         if (!canUseVoiceInput()) {
-            setMicPermissionError("Voice input is not available. Check your API key settings or browser support.");
+            setMicPermissionErrorWithTimeout("Voice input is not available. Check your API key settings or browser support.");
             return;
         }
 
-        try {
-            const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-            if (permissionStatus.state === 'granted' || permissionStatus.state === 'prompt') {
-                await startRecording();
-            } else if (permissionStatus.state === 'denied') {
-                setMicPermissionError('Microphone access is blocked. Please enable it in your browser\'s site settings.');
-            }
-            permissionStatus.onchange = () => {
-                if (permissionStatus.state === 'granted') setMicPermissionError('');
-            };
-        } catch (error) {
-            console.error("Could not query microphone permission, attempting to start directly:", error);
-            await startRecording();
-        }
+        // Directly attempt to start recording
+        // The browser will handle permission prompts automatically
+        await startRecording();
     };
 
     const VoiceCallInterface = () => (
@@ -477,8 +554,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
                                     <span>{micPermissionError}</span>
                                 </motion.div>
                             )}
+                            {!hasTriedMicrophone && canUseVoiceInput() && !micPermissionError && (
+                                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className={`flex items-center p-2 mb-3 text-sm rounded-lg ${isDark ? 'text-blue-300 bg-blue-900/30' : 'text-blue-700 bg-blue-100'}`}>
+                                    <Mic className="w-5 h-5 mr-2 flex-shrink-0" />
+                                    <span>Click the microphone button to start voice input. You'll be prompted to allow microphone access.</span>
+                                </motion.div>
+                            )}
                             <div className="flex items-center space-x-3">
-                                <motion.button whileHover={{ scale: canUseVoiceInput() ? 1.1 : 1 }} whileTap={{ scale: canUseVoiceInput() ? 0.9 : 1 }} onClick={toggleRecording} className={`p-3 rounded-full transition-all duration-200 ${isRecording ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse shadow-lg' : canUseVoiceInput() ? (isDark ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-200 text-gray-500 hover:bg-gray-300') : 'bg-gray-300 text-gray-400 cursor-not-allowed'}`} title={isRecording ? 'Stop recording' : canUseVoiceInput() ? 'Start voice recording' : 'Microphone not available or not supported'} disabled={!canUseVoiceInput()}>
+                                <motion.button whileHover={{ scale: canUseVoiceInput() ? 1.1 : 1 }} whileTap={{ scale: canUseVoiceInput() ? 0.9 : 1 }} onClick={toggleRecording} className={`p-3 rounded-full transition-all duration-200 ${isRecording ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse shadow-lg' : canUseVoiceInput() ? (isDark ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-200 text-gray-500 hover:bg-gray-300') : 'bg-gray-300 text-gray-400 cursor-not-allowed'}`} title={isRecording ? 'Stop recording' : canUseVoiceInput() ? (!hasTriedMicrophone ? 'Click to start voice input (will request microphone permission)' : 'Start voice recording') : 'Voice input not available - check API keys or browser support'} disabled={!canUseVoiceInput()}>
                                     {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
                                 </motion.button>
                                 <div className="flex-1 relative">

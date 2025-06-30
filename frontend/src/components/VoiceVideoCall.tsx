@@ -30,26 +30,21 @@ const VoiceVideoCall: React.FC<VoiceVideoCallProps> = ({ isOpen, onClose, mode, 
     const streamRef = useRef<MediaStream | null>(null);
 
     useEffect(() => {
-        if (isOpen) {
-            // Check if user has the required API key
-            const requiredApiKey = mode === 'voice' ? 'elevenlabs' : 'tavus';
-            const hasAccess = hasApiKey(requiredApiKey);
-            if (!hasAccess) {
-                setShowUpgrade(true);
-                return;
-            }
+    if (isOpen) {
+        const requiredApiKey = mode === 'voice' ? 'elevenlabs' : 'tavus';
+        const hasAccess = hasApiKey(requiredApiKey);
+        setShowUpgrade(!hasAccess);
+    }
 
-            initializeCall();
-        }
+    return () => {
+        cleanup();
+    };
+}, [isOpen, mode]);
 
-        return () => {
-            cleanup();
-        };
-    }, [isOpen, mode]);
 
     const initializeCall = async () => {
         try {
-            // Get user media
+            // Get user media with proper constraints
             const constraints = {
                 audio: true,
                 video: mode === 'video'
@@ -69,18 +64,63 @@ const VoiceVideoCall: React.FC<VoiceVideoCallProps> = ({ isOpen, onClose, mode, 
             toast.success(`${mode === 'video' ? 'Video' : 'Voice'} call started`);
         } catch (error) {
             console.error('Failed to initialize call:', error);
-            toast.error('Failed to access camera/microphone');
+            
+            let message = 'Failed to access camera/microphone';
+            
+            if (error instanceof DOMException) {
+                switch (error.name) {
+                    case 'NotAllowedError':
+                    case 'PermissionDeniedError':
+                        message = mode === 'video' 
+                            ? 'Camera and microphone access denied. Please allow access and try again.'
+                            : 'Microphone access denied. Please allow access and try again.';
+                        break;
+                    case 'NotFoundError':
+                    case 'DevicesNotFoundError':
+                        message = mode === 'video'
+                            ? 'No camera or microphone found. Please connect your devices.'
+                            : 'No microphone found. Please connect a microphone.';
+                        break;
+                    case 'NotReadableError':
+                    case 'TrackStartError':
+                        message = mode === 'video'
+                            ? 'Camera or microphone is being used by another application.'
+                            : 'Microphone is being used by another application.';
+                        break;
+                    case 'OverconstrainedError':
+                        message = 'Your device does not meet the required specifications.';
+                        break;
+                    case 'SecurityError':
+                        message = 'Access blocked due to security restrictions. Please use HTTPS.';
+                        break;
+                    case 'AbortError':
+                        message = 'Media access was aborted. Please try again.';
+                        break;
+                    default:
+                        message = `Media error (${error.name}): ${error.message || 'Unknown error occurred.'}`;
+                }
+            }
+            
+            toast.error(message);
+            onClose(); // Close the call interface on error
         }
     };
 
     const cleanup = () => {
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
         }
-        if (mediaRecorderRef.current) {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
             mediaRecorderRef.current.stop();
+            mediaRecorderRef.current = null;
         }
         setIsConnected(false);
+        setIsMuted(false);
+        setIsVideoEnabled(false);
+        setIsSpeaking(false);
+        setAudioUrl(null);
+        setVideoUrl(null);
     };
 
     const generateVoiceResponse = async (text: string) => {
@@ -235,6 +275,9 @@ const VoiceVideoCall: React.FC<VoiceVideoCallProps> = ({ isOpen, onClose, mode, 
                                     transition={{ duration: 1, repeat: isSpeaking ? Infinity : 0 }}
                                     className="w-64 h-64 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center"
                                 >
+                                    <div className="flex flex-col items-center">
+                                        <button onClick={initializeCall()} className="bg-blue-500 text-white px-4 py-2 rounded" >Start</button>
+                                    </div>
                                     <Volume2 className="w-24 h-24 text-white" />
                                 </motion.div>
                             </div>
