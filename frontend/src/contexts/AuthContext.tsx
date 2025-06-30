@@ -45,7 +45,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             console.log('Auth initialization timeout, continuing...');
             setIsLoading(false);
           }
-        }, 2000); // 2 seconds timeout
+        }, 500); // 0.5 seconds timeout
 
         // Get initial session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
