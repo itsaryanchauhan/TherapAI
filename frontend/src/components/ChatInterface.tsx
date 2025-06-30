@@ -51,18 +51,24 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   // Helper function to check if user can access a feature based on API keys
   const canAccessFeature = (feature: 'voice' | 'video') => {
     if (feature === 'voice') {
-      // Web Speech API doesn't require API key, but check if it's supported
-      const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const hasSpeechAPI = !!SpeechRecognition;
-      const hasElevenLabsKey = hasApiKey('elevenlabs');
-
-      console.log('Voice feature check:', { hasSpeechAPI, hasElevenLabsKey });
-
-      return hasSpeechAPI || hasElevenLabsKey; // Fallback to ElevenLabs if Web Speech API not available
+      // Voice mode (ElevenLabs conversation) requires ElevenLabs API key
+      return hasApiKey('elevenlabs');
     } else if (feature === 'video') {
       return hasApiKey('tavus');
     }
     return false;
+  };
+
+  // Helper function to check if voice input (microphone) is available
+  const canUseVoiceInput = () => {
+    // Web Speech API doesn't require API key, check if it's supported
+    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const hasSpeechAPI = !!SpeechRecognition;
+    const hasElevenLabsKey = hasApiKey('elevenlabs');
+    
+    console.log('Voice input check:', { hasSpeechAPI, hasElevenLabsKey });
+    
+    return hasSpeechAPI || hasElevenLabsKey; // Fallback to ElevenLabs if Web Speech API not available
   };
 
   const scrollToBottom = () => {
@@ -160,8 +166,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
       let audioUrl = '';
       let videoUrl = '';
 
-      // Generate voice response if in voice/video mode and user has access
-      if ((currentMode === 'voice' || currentMode === 'video') && canAccessFeature('voice')) {
+      // Generate voice response if in voice/video mode and user has ElevenLabs API key
+      if ((currentMode === 'voice' || currentMode === 'video') && hasApiKey('elevenlabs')) {
         try {
           const voiceResponse = await generateVoiceResponse(responseText);
           if (voiceResponse.status === 'ready') {
@@ -252,17 +258,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   };
 
   const startRecording = async () => {
-    // Check if Web Speech API is supported first, no API key needed
-    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition && !hasApiKey('elevenlabs')) {
+    // Check if voice input is available
+    if (!canUseVoiceInput()) {
       setShowUpgradePrompt(true);
       return;
     }
 
+    // Check if Web Speech API is supported first
+    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+
     try {
       if (!SpeechRecognition) {
-        console.error('Speech recognition not supported in this browser');
+        console.log('Web Speech API not supported, falling back to MediaRecorder + ElevenLabs');
         // Fallback to MediaRecorder for unsupported browsers
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
@@ -286,6 +293,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
       }
 
       // Use Web Speech API
+      console.log('Using Web Speech API for voice recognition');
       const recognition = new SpeechRecognition();
       recognitionRef.current = recognition;
 
@@ -340,7 +348,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   };
 
   const toggleRecording = () => {
-    console.log('Toggle recording clicked, isRecording:', isRecording, 'canAccessVoice:', canAccessFeature('voice'));
+    console.log('Toggle recording clicked, isRecording:', isRecording, 'canUseVoiceInput:', canUseVoiceInput());
     if (isRecording) {
       stopRecording();
     } else {
@@ -468,19 +476,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
         <div className="flex items-center space-x-3">
           {/* Voice Recording */}
           <motion.button
-            whileHover={{ scale: canAccessFeature('voice') ? 1.1 : 1 }}
-            whileTap={{ scale: canAccessFeature('voice') ? 0.9 : 1 }}
+            whileHover={{ scale: canUseVoiceInput() ? 1.1 : 1 }}
+            whileTap={{ scale: canUseVoiceInput() ? 0.9 : 1 }}
             onClick={toggleRecording}
             className={`p-3 rounded-full transition-all duration-200 ${isRecording
               ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse shadow-lg'
-              : canAccessFeature('voice')
+              : canUseVoiceInput()
                 ? isDark
                   ? 'bg-gray-700 text-gray-400 hover:bg-gray-600'
                   : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
                 : 'bg-gray-300 text-gray-400 cursor-not-allowed'
               }`}
-            title={isRecording ? 'Stop recording' : canAccessFeature('voice') ? 'Start voice recording' : 'Speech recognition not supported in your browser'}
-            disabled={!canAccessFeature('voice')}
+            title={isRecording ? 'Stop recording' : canUseVoiceInput() ? 'Start voice recording' : 'Speech recognition not supported in your browser'}
+            disabled={!canUseVoiceInput()}
           >
             {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </motion.button>
