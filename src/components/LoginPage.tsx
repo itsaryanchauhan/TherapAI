@@ -105,17 +105,17 @@ const LoginPage: React.FC = () => {
         {/* Success Message */}
         {showSuccess && (
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className={`p-4 rounded-lg border ${
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`p-4 rounded-lg border text-sm ${
               isDark 
                 ? 'bg-green-900/20 border-green-800 text-green-400' 
                 : 'bg-green-50 border-green-200 text-green-700'
             }`}
           >
             <div className="flex items-center space-x-2">
-              <CheckCircle className="w-4 h-4 flex-shrink-0" />
-              <span className="text-sm">Account created successfully! You can now sign in.</span>
+              <CheckCircle className="w-4 h-4" />
+              <span>Account created successfully! Please check your email to verify your account.</span>
             </div>
           </motion.div>
         )}
@@ -123,9 +123,9 @@ const LoginPage: React.FC = () => {
         {/* Error Message */}
         {error && (
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className={`p-4 rounded-lg border ${
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`p-4 rounded-lg border text-sm ${
               isDark 
                 ? 'bg-red-900/20 border-red-800 text-red-400' 
                 : 'bg-red-50 border-red-200 text-red-700'
@@ -133,54 +133,24 @@ const LoginPage: React.FC = () => {
           >
             <div className="flex items-center space-x-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span className="text-sm">{error}</span>
+              <div>
+                <p className="font-medium">Authentication Error</p>
+                <p className="mt-1">{error}</p>
+                {(error.includes('connection') || error.includes('fetch') || error.includes('network') || error.includes('Supabase')) && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs opacity-90">Troubleshooting steps:</p>
+                    <ul className="text-xs opacity-80 space-y-1 ml-4">
+                      <li>• Check your internet connection</li>
+                      <li>• Verify Supabase configuration in .env file</li>
+                      <li>• Try refreshing the page</li>
+                      <li>• Or continue as guest to explore the app</li>
+                    </ul>
+                  </div>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
-
-        {/* Quick Access Buttons */}
-        <div className="space-y-3">
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleGuestContinue}
-            className={`w-full flex items-center justify-center px-4 py-3 border-2 border-dashed rounded-xl text-sm font-medium transition-all duration-200 ${
-              isDark 
-                ? 'border-gray-600 text-gray-300 hover:bg-gray-700 hover:border-gray-500' 
-                : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
-            }`}
-          >
-            <UserCheck className="w-5 h-5 mr-2" />
-            Continue as Guest (Quick Start)
-          </motion.button>
-
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleGoogleSignIn}
-            disabled={isFormLoading}
-            className={`w-full flex items-center justify-center px-4 py-3 border rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
-              isDark 
-                ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            <Chrome className="w-5 h-5 mr-2" />
-            Continue with Google
-          </motion.button>
-        </div>
-
-        {/* Divider */}
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className={`w-full border-t ${isDark ? 'border-gray-600' : 'border-gray-300'}`} />
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className={`px-2 ${isDark ? 'bg-gray-800 text-gray-400' : 'bg-white text-gray-500'}`}>
-              Or sign in with email
-            </span>
-          </div>
-        </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -189,141 +159,168 @@ const LoginPage: React.FC = () => {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
             >
-              <label htmlFor="fullName" className={`block text-sm font-medium ${
-                isDark ? 'text-gray-300' : 'text-gray-700'
-              }`}>
-                Full Name
-              </label>
-              <div className="mt-1 relative">
+              <div className="relative">
                 <User className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
-                  isDark ? 'text-gray-400' : 'text-gray-400'
+                  isDark ? 'text-gray-400' : 'text-gray-500'
                 }`} />
                 <input
-                  id="fullName"
                   type="text"
+                  placeholder="Full Name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className={`pl-10 w-full px-3 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
+                  className={`w-full pl-10 pr-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                     isDark 
                       ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
                       : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
                   }`}
-                  placeholder="Enter your full name"
                   required={isSignUp}
+                  disabled={isFormLoading}
                 />
               </div>
             </motion.div>
           )}
 
-          <div>
-            <label htmlFor="email" className={`block text-sm font-medium ${
-              isDark ? 'text-gray-300' : 'text-gray-700'
-            }`}>
-              Email address
-            </label>
-            <div className="mt-1 relative">
-              <Mail className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
-                isDark ? 'text-gray-400' : 'text-gray-400'
-              }`} />
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={`pl-10 w-full px-3 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
-                  isDark 
-                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                }`}
-                placeholder="Enter your email"
-                required
-              />
-            </div>
+          <div className="relative">
+            <Mail className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+              isDark ? 'text-gray-400' : 'text-gray-500'
+            }`} />
+            <input
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={`w-full pl-10 pr-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                isDark 
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+              }`}
+              required
+              disabled={isFormLoading}
+            />
           </div>
 
-          <div>
-            <label htmlFor="password" className={`block text-sm font-medium ${
-              isDark ? 'text-gray-300' : 'text-gray-700'
-            }`}>
-              Password
-            </label>
-            <div className="mt-1 relative">
-              <Lock className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
-                isDark ? 'text-gray-400' : 'text-gray-400'
-              }`} />
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={`pl-10 pr-10 w-full px-3 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
-                  isDark 
-                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                }`}
-                placeholder="Enter your password"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${
-                  isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
+          <div className="relative">
+            <Lock className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+              isDark ? 'text-gray-400' : 'text-gray-500'
+            }`} />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={`w-full pl-10 pr-12 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                isDark 
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+              }`}
+              required
+              disabled={isFormLoading}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${
+                isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-600'
+              }`}
+              disabled={isFormLoading}
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
           </div>
 
           <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={isFormLoading}
-            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            className={`w-full py-3 px-4 rounded-lg font-medium flex items-center justify-center space-x-2 transition-all duration-200 ${
+              isFormLoading
+                ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105'
+            }`}
+            whileTap={{ scale: 0.98 }}
           >
             {isFormLoading ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              <>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full"
+                />
+                <span>Processing...</span>
+              </>
             ) : (
-              isSignUp ? 'Create Account' : 'Sign In'
+              <>
+                <UserCheck className="w-5 h-5" />
+                <span>{isSignUp ? 'Create Account' : 'Sign In'}</span>
+              </>
             )}
           </motion.button>
         </form>
 
-        {/* Toggle Sign Up/Sign In */}
+        {/* Divider */}
+        <div className="relative">
+          <div className={`absolute inset-0 flex items-center ${
+            isDark ? 'border-gray-600' : 'border-gray-300'
+          }`}>
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className={`px-2 ${
+              isDark ? 'bg-gray-800 text-gray-400' : 'bg-white text-gray-500'
+            }`}>Or continue with</span>
+          </div>
+        </div>
+
+        {/* Google Sign In */}
+        <motion.button
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={isFormLoading}
+          className={`w-full py-3 px-4 rounded-lg border flex items-center justify-center space-x-2 transition-all duration-200 ${
+            isDark 
+              ? 'border-gray-600 bg-gray-700 text-white hover:bg-gray-600' 
+              : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+          } ${isFormLoading ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md'}`}
+          whileTap={{ scale: 0.98 }}
+        >
+          <Chrome className="w-5 h-5" />
+          <span>Continue with Google</span>
+        </motion.button>
+
+        {/* Guest Access */}
+        <motion.button
+          type="button"
+          onClick={handleGuestContinue}
+          disabled={isFormLoading}
+          className={`w-full py-3 px-4 rounded-lg border-2 border-dashed flex items-center justify-center space-x-2 transition-all duration-200 ${
+            isDark 
+              ? 'border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-300' 
+              : 'border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-700'
+          } ${isFormLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          whileTap={{ scale: 0.98 }}
+        >
+          <Zap className="w-5 h-5" />
+          <span>Continue as Guest</span>
+        </motion.button>
+
+        {/* Toggle Form */}
         <div className="text-center">
           <button
-            onClick={() => {
-              setIsSignUp(!isSignUp);
-              clearError();
-              setShowSuccess(false);
-            }}
-            className={`text-sm ${
-              isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'
-            } transition-colors duration-200`}
+            type="button"
+            onClick={() => setIsSignUp(!isSignUp)}
+            disabled={isFormLoading}
+            className={`text-sm underline transition-colors ${
+              isDark 
+                ? 'text-blue-400 hover:text-blue-300' 
+                : 'text-blue-600 hover:text-blue-500'
+            } ${isFormLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {isSignUp 
               ? 'Already have an account? Sign in' 
               : "Don't have an account? Sign up"
             }
           </button>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center pt-4">
-          <a
-            href="https://bolt.new"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`inline-flex items-center text-xs ${
-              isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
-            } transition-colors duration-200`}
-          >
-            <Zap className="w-3 h-3 mr-1 text-yellow-500" />
-            Built with Bolt
-          </a>
         </div>
       </motion.div>
     </div>

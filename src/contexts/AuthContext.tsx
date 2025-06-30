@@ -45,13 +45,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             console.log('Auth initialization timeout, continuing...');
             setIsLoading(false);
           }
-        }, 3000); // Reduced timeout to 3 seconds
+        }, 5000); // 5 seconds timeout
 
         // Get initial session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
+
         if (sessionError) {
           console.error('Session error:', sessionError);
+          // Check if it's a connection error
+          if (sessionError.message?.includes('Failed to fetch') ||
+            sessionError.message?.includes('network') ||
+            sessionError.message?.includes('ENOTFOUND')) {
+            setError('Unable to connect to authentication service. Please check your internet connection and try again.');
+          } else {
+            setError(sessionError.message);
+          }
           if (mounted) {
             setIsLoading(false);
           }
@@ -63,9 +71,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } else if (mounted) {
           setIsLoading(false);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Auth initialization error:', error);
         if (mounted) {
+          // Check if it's a connection error
+          if (error.message?.includes('Failed to fetch') ||
+            error.message?.includes('network') ||
+            error.message?.includes('ENOTFOUND')) {
+            setError('Unable to connect to authentication service. Please check your Supabase configuration.');
+          } else {
+            setError(error.message || 'Authentication initialization failed');
+          }
           setIsLoading(false);
         }
       } finally {
@@ -94,11 +110,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
           } else {
             setUser(null);
+            setIsLoading(false);
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Auth state change error:', error);
           // Don't leave user in loading state
           if (mounted) {
+            if (error.message?.includes('Failed to fetch') || 
+                error.message?.includes('network') ||
+                error.message?.includes('ENOTFOUND')) {
+              setError('Connection lost. Please check your internet connection.');
+            } else {
+              setError(error.message || 'Authentication error occurred');
+            }
             setIsLoading(false);
           }
         }
@@ -113,7 +137,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       subscription.unsubscribe();
     };
   }, []);
-
   const fetchUserProfile = async (userId: string, authUser?: any, isNewUser = false) => {
     try {
       setIsLoading(true);
@@ -138,7 +161,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
           if (createError) {
             console.error('Error creating profile:', createError);
-            // Use fallback user data
+            // Use fallback user data even if database insert fails
             setUser({
               id: authUser.id,
               email: authUser.email,
@@ -156,17 +179,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
           setIsLoading(false);
           return;
-        } catch (createError) {
+        } catch (createError: any) {
           console.error('Error creating profile:', createError);
+          // If database is unavailable, still create user in memory
+          setUser({
+            id: authUser.id,
+            email: authUser.email,
+            full_name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || null,
+            avatar_url: authUser.user_metadata?.avatar_url || null,
+            subscription_tier: 'free',
+            created_at: new Date(),
+          });
+          setIsLoading(false);
+          return;
         }
       }
 
-      // Try to get existing profile
-      const { data, error } = await supabase
+      // Try to get existing profile with timeout
+      const profilePromise = supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
+
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Database query timeout')), 5000);
+      });
+
+      const { data, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching profile:', error);
@@ -299,7 +340,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (error) throw error;
-      
+
       // Don't set loading to false here - let the auth state change handle it
     } catch (error: any) {
       setError(error.message);

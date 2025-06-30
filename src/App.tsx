@@ -39,14 +39,17 @@ const AppContent: React.FC = () => {
       <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
         isDark ? 'bg-gray-900' : 'bg-gray-50'
       }`}>
-        <motion.div className="text-center">
+        <motion.div className="text-center max-w-md mx-auto p-6">
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
             className="rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"
           />
-          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
             Loading your therapeutic space...
+          </p>
+          <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            If this takes too long, please check your internet connection or try refreshing the page.
           </p>
         </motion.div>
       </div>
