@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Key, Save, Eye, EyeOff, AlertCircle, CheckCircle, Settings as SettingsIcon, Trash2, TestTube } from 'lucide-react';
+import { Key, Save, Eye, EyeOff, AlertCircle, CheckCircle, Settings as SettingsIcon, Trash2, TestTube, HelpCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { API_SERVICES } from '../services/apiKeys';
 import { generateAIResponse } from '../services/gemini';
+import ApiSetupGuide from './ApiSetupGuide';
 
 const SettingsPage: React.FC = () => {
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
@@ -13,6 +14,8 @@ const SettingsPage: React.FC = () => {
   const [savedKeys, setSavedKeys] = useState<Record<string, boolean>>({});
   const [testingKeys, setTestingKeys] = useState<Record<string, boolean>>({});
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<'elevenlabs' | 'tavus' | 'gemini' | null>(null);
 
   const { isDark } = useTheme();
   const { user } = useAuth();
@@ -188,6 +191,20 @@ const SettingsPage: React.FC = () => {
                             }`}>
                             {hasKey ? 'Configured' : 'Required'}
                           </span>
+                          <button
+                            onClick={() => {
+                              setSelectedProvider(serviceKey as 'elevenlabs' | 'tavus' | 'gemini');
+                              setShowSetupGuide(true);
+                            }}
+                            className={`p-1.5 rounded-full transition-colors ${
+                              isDark 
+                                ? 'hover:bg-gray-600 text-gray-400 hover:text-blue-400' 
+                                : 'hover:bg-gray-200 text-gray-500 hover:text-blue-600'
+                            }`}
+                            title={`Setup guide for ${service.name}`}
+                          >
+                            <HelpCircle className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
 
@@ -347,6 +364,13 @@ const SettingsPage: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* API Setup Guide Modal */}
+      <ApiSetupGuide
+        isOpen={showSetupGuide}
+        onClose={() => setShowSetupGuide(false)}
+        apiProvider={selectedProvider}
+      />
     </div>
   );
 };

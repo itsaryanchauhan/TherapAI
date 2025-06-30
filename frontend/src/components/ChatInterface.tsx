@@ -65,9 +65,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
     const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
     const hasSpeechAPI = !!SpeechRecognition;
     const hasElevenLabsKey = hasApiKey('elevenlabs');
-    
+
     console.log('Voice input check:', { hasSpeechAPI, hasElevenLabsKey });
-    
+
     return hasSpeechAPI || hasElevenLabsKey; // Fallback to ElevenLabs if Web Speech API not available
   };
 
