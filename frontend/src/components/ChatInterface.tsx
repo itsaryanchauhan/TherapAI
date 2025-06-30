@@ -10,7 +10,7 @@ import TypingIndicator from './TypingIndicator';
 import UpgradePrompt from './UpgradePrompt';
 import { generateVoiceResponse, transcribeAudio } from '../services/elevenlabs';
 import { generateAIResponse } from '../services/gemini';
-import { saveMessage, createSession } from '../services/supabase';
+import { saveMessage, createSession, getSessionMessages } from '../services/supabase';
 
 // Extend Window interface for Web Speech API
 declare global {
@@ -53,7 +53,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   // Helper function to check if user can access a feature based on API keys
   const canAccessFeature = (feature: 'voice' | 'video') => {
     if (feature === 'voice') {
-      // Voice mode (ElevenLabs conversation) requires ElevenLabs API key
       return hasApiKey('elevenlabs');
     } else if (feature === 'video') {
       return hasApiKey('tavus');
@@ -63,19 +62,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
 
   // Helper function to check if voice input (microphone) is available
   const canUseVoiceInput = () => {
-    // In chat mode, Web Speech API doesn't require API key, check if it's supported
     const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
     const hasSpeechAPI = !!SpeechRecognition;
     const hasElevenLabsKey = hasApiKey('elevenlabs');
 
-    console.log('Voice input check:', { hasSpeechAPI, hasElevenLabsKey, mode: currentMode });
-
-    // In chat mode, allow voice input if Web Speech API is supported (no API key needed)
-    // In voice/video modes, require ElevenLabs API key
     if (currentMode === 'chat') {
-      return hasSpeechAPI; // Web Speech API is enough for chat mode
+      return hasSpeechAPI;
     } else {
-      return hasElevenLabsKey; // Voice/Video modes require ElevenLabs
+      return hasElevenLabsKey;
     }
   };
 
@@ -87,11 +81,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
     scrollToBottom();
   }, [messages, isTyping]);
 
+  // Fixed session initialization to prevent creating sessions on app switch
   useEffect(() => {
     if (user && !sessionId) {
-      initializeSession();
+      const sessionFromStorage = localStorage.getItem(`therapai_session_${user.id}`);
+      if (sessionFromStorage) {
+        setSessionId(sessionFromStorage);
+        // Load messages for existing session
+        getSessionMessages(sessionFromStorage).then(messages => {
+          if (messages && messages.length > 0) {
+            setMessages(messages);
+          }
+        });
+      } else {
+        initializeSession();
+      }
     }
-  }, [user, sessionId]); // Restored sessionId to dependency array
+  }, [user]);
 
   // Separate effect to add welcome message when API key is added
   useEffect(() => {
@@ -107,7 +113,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
 
       setMessages([welcomeMessage]);
 
-      // Save welcome message
       saveMessage(welcomeMessage).catch(error => {
         console.error('Error saving welcome message:', error);
       });
@@ -115,13 +120,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   }, [user, sessionId, hasApiKey('gemini'), messages.length]);
 
   const initializeSession = async () => {
-    if (!user || sessionId) return; // Only create session if none exists
+    if (!user || sessionId) return;
     try {
       const newSessionId = await createSession(user.id, currentMode);
       setSessionId(newSessionId);
-      // Fetch existing messages for the session
-      const existingMessages = await getMessages(newSessionId);
-      if (existingMessages) {
+      localStorage.setItem(`therapai_session_${user.id}`, newSessionId);
+      const existingMessages = await getSessionMessages(newSessionId);
+      if (existingMessages && existingMessages.length > 0) {
         setMessages(existingMessages);
       }
     } catch (error) {
@@ -155,12 +160,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
       await saveMessage(userMessage);
 
       const conversationHistory = messages.map(msg => ({
-        role: msg.is_user ? 'user' as const : 'assistant' as const,
+        role: msg.is_user ? ('user' as const) : ('assistant' as const),
         content: msg.content
       }));
 
       const aiResponse = await generateAIResponse({
-        message: `Please provide a natural, conversational response. Do not use markdown or formatting like lists, bolding, or italics. Just talk to me. My message is: ${inputValue}`,
+        message: inputValue,
         conversationHistory
       });
 
@@ -169,24 +174,52 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
       }
 
       const responseText = aiResponse.response;
-      const aiMessage: Message = {
-        id: `msg_${Date.now()}_ai`,
-        session_id: sessionId,
-        content: responseText,
-        is_user: false,
-        timestamp: new Date(),
-        word_count: responseText.split(' ').length
-      };
+      let audioUrl = '';
+      let videoUrl = '';
 
-      setMessages(prev => [...prev, aiMessage]);
-      setIsTyping(false);
-      setIsGeneratingResponse(false);
-
-      await saveMessage(aiMessage);
-
-      if (onNewMessage) {
-        onNewMessage(aiMessage);
+      // Generate voice response if in voice/video mode and user has ElevenLabs API key
+      if ((currentMode === 'voice' || currentMode === 'video') && hasApiKey('elevenlabs')) {
+        try {
+          setIsAiSpeaking(true);
+          const voiceResponse = await generateVoiceResponse(responseText);
+          if (voiceResponse.status === 'ready') {
+            audioUrl = voiceResponse.audioUrl;
+            if (currentMode === 'voice' && audioRef.current) {
+              audioRef.current.src = audioUrl;
+              audioRef.current.onended = () => setIsAiSpeaking(false);
+              audioRef.current.play().catch(console.error);
+            }
+          }
+        } catch (error) {
+          console.error('Error generating voice:', error);
+          setIsAiSpeaking(false);
+        }
       }
+
+      // Simulate AI thinking time
+      setTimeout(async () => {
+        const aiMessage: Message = {
+          id: `msg_${Date.now()}_ai`,
+          session_id: sessionId,
+          content: responseText,
+          is_user: false,
+          timestamp: new Date(),
+          audio_url: audioUrl || undefined,
+          video_url: videoUrl || undefined,
+          word_count: responseText.split(' ').length
+        };
+
+        setMessages(prev => [...prev, aiMessage]);
+        setIsTyping(false);
+        setIsGeneratingResponse(false);
+
+        await saveMessage(aiMessage);
+
+        if (onNewMessage) {
+          onNewMessage(aiMessage);
+        }
+      }, 1000 + Math.random() * 1000);
+
     } catch (error) {
       console.error('Error generating AI response:', error);
       setIsTyping(false);
@@ -231,22 +264,33 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   };
 
   const startRecording = async () => {
-    // Check if voice input is available
     if (!canUseVoiceInput()) {
-      // In voice mode, user needs ElevenLabs API key
       if (currentMode === 'voice') {
         setUpgradePromptFeature('voice');
       } else {
-        setUpgradePromptFeature(undefined); // For chat mode, it's a general speech recognition issue
+        setUpgradePromptFeature(undefined);
       }
       setShowUpgradePrompt(true);
+      return;
+    }
+
+    // Check microphone permission first
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
+    } catch (error) {
+      console.error('Microphone access denied:', error);
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        alert('Microphone access is required for voice input. Please allow microphone access and try again.');
+      } else {
+        alert('Unable to access microphone. Please check your microphone settings.');
+      }
       return;
     }
 
     // In voice mode, use ElevenLabs transcription
     if (currentMode === 'voice' && hasApiKey('elevenlabs')) {
       try {
-        console.log('Starting ElevenLabs transcription recording...');
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
         mediaRecorderRef.current = mediaRecorder;
@@ -262,110 +306,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
             const transcription = await transcribeAudio(audioBlob);
             if (transcription) {
               setInputValue(transcription);
-              // Auto-send in voice mode after a short delay
+              // Auto-send in voice mode
               setTimeout(() => {
                 if (transcription.trim()) {
-                  // Create a temporary function to send this specific message
-                  const sendTranscription = async () => {
-                    if (!user) return;
-
-                    // Check if user has required API key for chat
-                    if (!hasApiKey('gemini')) {
-                      setShowUpgradePrompt(true);
-                      return;
-                    }
-
-                    const userMessage: Message = {
-                      id: `msg_${Date.now()}_user`,
-                      session_id: sessionId,
-                      content: transcription,
-                      is_user: true,
-                      timestamp: new Date(),
-                      word_count: transcription.split(' ').length
-                    };
-
-                    setMessages(prev => [...prev, userMessage]);
-                    setInputValue(''); // Clear after sending
-                    setIsTyping(true);
-                    setIsGeneratingResponse(true);
-
-                    // Continue with AI response generation...
-                    try {
-                      await saveMessage(userMessage);
-
-                      // Fix type error in conversationHistory
-                      const conversationHistory = messages.map(msg => ({
-                        role: msg.is_user ? ('user' as const) : ('assistant' as const), // Explicitly cast to 'user' | 'assistant'
-                        content: msg.content
-                      }));
-
-                      const aiResponse = await generateAIResponse({
-                        message: transcription,
-                        conversationHistory
-                      });
-
-                      if (!aiResponse.success || !aiResponse.response) {
-                        throw new Error(aiResponse.error || 'Failed to generate AI response');
-                      }
-
-                      const responseText = aiResponse.response;
-                      let audioUrl = '';
-
-                      // Generate voice response for voice mode
-                      if (currentMode === 'voice' && hasApiKey('elevenlabs')) {
-                        try {
-                          setIsAiSpeaking(true);
-                          const voiceResponse = await generateVoiceResponse(responseText);
-                          if (voiceResponse.status === 'ready') {
-                            audioUrl = voiceResponse.audioUrl;
-                            if (audioRef.current) {
-                              audioRef.current.src = audioUrl;
-                              audioRef.current.onended = () => setIsAiSpeaking(false);
-                              audioRef.current.play().catch(console.error);
-                            }
-                          }
-                        } catch (error) {
-                          console.error('Error generating voice:', error);
-                          setIsAiSpeaking(false);
-                        }
-                      }
-
-                      // Create AI message
-                      setTimeout(async () => {
-                        const aiMessage: Message = {
-                          id: `msg_${Date.now()}_ai`,
-                          session_id: sessionId,
-                          content: responseText,
-                          is_user: false,
-                          timestamp: new Date(),
-                          audio_url: audioUrl || undefined,
-                          word_count: responseText.split(' ').length
-                        };
-
-                        setMessages(prev => [...prev, aiMessage]);
-                        setIsTyping(false);
-                        setIsGeneratingResponse(false);
-
-                        await saveMessage(aiMessage);
-
-                        if (onNewMessage) {
-                          onNewMessage(aiMessage);
-                        }
-                      }, 1000 + Math.random() * 1000);
-
-                    } catch (error) {
-                      console.error('Error generating AI response:', error);
-                      setIsTyping(false);
-                      setIsGeneratingResponse(false);
-                      setIsAiSpeaking(false);
-                    }
-
-                    if (onNewMessage) {
-                      onNewMessage(userMessage);
-                    }
-                  };
-
-                  sendTranscription();
+                  handleSendMessage();
                 }
               }, 500);
             }
@@ -380,29 +324,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
         return;
       } catch (error) {
         console.error('Error starting recording:', error);
-        if (error instanceof DOMException) {
-          if (error.name === 'NotAllowedError') {
-            alert('Microphone access is required for voice input. Please allow microphone access and try again.');
-          } else if (error.name === 'NotFoundError') {
-            alert('No microphone found. Please connect a microphone and try again.');
-          } else {
-            alert('Error accessing microphone: ' + error.message);
-          }
-        } else {
-          alert('Failed to start recording. Please check your microphone settings.');
-        }
-        setIsRecording(false);
         return;
       }
     }
 
-    // For chat mode, use Web Speech API first
+    // For chat mode, use Web Speech API
     const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-    try {
-      if (!SpeechRecognition) {
-        console.log('Web Speech API not supported, falling back to MediaRecorder + ElevenLabs');
-        // Fallback to MediaRecorder for unsupported browsers
+    if (!SpeechRecognition) {
+      // Fallback to MediaRecorder for unsupported browsers
+      try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
         mediaRecorderRef.current = mediaRecorder;
@@ -421,19 +352,20 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
             }
           } catch (error) {
             console.error('Transcription failed:', error);
-            alert('Failed to transcribe audio. Please try again.');
           }
           stream.getTracks().forEach(track => track.stop());
         };
 
         mediaRecorder.start();
         setIsRecording(true);
-        return;
+      } catch (error) {
+        console.error('Error starting recording:', error);
       }
+      return;
+    }
 
-      // Use Web Speech API
-      console.log('Using Web Speech API for voice recognition');
-
+    // Use Web Speech API
+    try {
       const recognition = new SpeechRecognition();
       recognitionRef.current = recognition;
 
@@ -443,7 +375,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
 
       recognition.onstart = () => {
         setIsRecording(true);
-        console.log('Speech recognition started');
       };
 
       recognition.onresult = (event: any) => {
@@ -466,34 +397,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
 
         if (event.error === 'not-allowed') {
           alert('Microphone access is required for voice input. Please allow microphone access in your browser settings and try again.');
-        } else if (event.error === 'no-speech') {
-          console.log('No speech detected, continuing...');
-        } else if (event.error === 'network') {
-          console.error('Network error during speech recognition');
-        } else {
-          console.error('Speech recognition error:', event.error);
         }
       };
 
       recognition.onend = () => {
         setIsRecording(false);
-        console.log('Speech recognition ended');
       };
 
       recognition.start();
     } catch (error) {
       console.error('Error starting recording:', error);
-      if (error instanceof DOMException) {
-        if (error.name === 'NotAllowedError') {
-          alert('Microphone access is required for voice input. Please allow microphone access and try again.');
-        } else if (error.name === 'NotFoundError') {
-          alert('No microphone found. Please connect a microphone and try again.');
-        } else {
-          alert('Error accessing microphone: ' + error.message);
-        }
-      } else {
-        alert('Failed to start speech recognition. Please check your microphone settings.');
-      }
       setIsRecording(false);
     }
   };
@@ -508,12 +421,33 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
     }
   };
 
-  const toggleRecording = () => {
-    console.log('Toggle recording clicked, isRecording:', isRecording, 'canUseVoiceInput:', canUseVoiceInput(), 'currentMode:', currentMode);
+  const toggleRecording = async () => {
     if (isRecording) {
       stopRecording();
-    } else {
+      return;
+    }
+
+    if (!canUseVoiceInput()) {
+      if (currentMode === 'voice') {
+        alert('ElevenLabs API key is required for voice mode. Please add your API key in Settings.');
+      } else {
+        alert('Speech recognition is not supported in your browser.');
+      }
+      return;
+    }
+
+    // Check microphone permission before starting
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
       startRecording();
+    } catch (error) {
+      console.error('Microphone permission check failed:', error);
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        alert('Microphone access is required for voice input. Please allow microphone access in your browser settings and try again.');
+      } else {
+        alert('Unable to access microphone. Please check your microphone settings and try again.');
+      }
     }
   };
 
@@ -525,10 +459,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
           animate={{ scale: isAiSpeaking ? [1, 1.1, 1] : 1 }}
           transition={{ duration: 0.5, repeat: isAiSpeaking ? Infinity : 0 }}
           className={`w-32 h-32 rounded-full mx-auto mb-6 flex items-center justify-center ${isAiSpeaking
-            ? 'bg-blue-500 text-white'
-            : isDark
-              ? 'bg-gray-700 text-blue-400'
-              : 'bg-blue-100 text-blue-600'
+              ? 'bg-blue-500 text-white'
+              : isDark
+                ? 'bg-gray-700 text-blue-400'
+                : 'bg-blue-100 text-blue-600'
             }`}
         >
           <Phone className="w-16 h-16" />
@@ -557,12 +491,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
           onClick={toggleRecording}
           disabled={isGeneratingResponse || isAiSpeaking}
           className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 ${isRecording
-            ? 'bg-red-500 text-white shadow-lg animate-pulse'
-            : isGeneratingResponse || isAiSpeaking
-              ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-              : isDark
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-blue-500 hover:bg-blue-600 text-white'
+              ? 'bg-red-500 text-white shadow-lg animate-pulse'
+              : isGeneratingResponse || isAiSpeaking
+                ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                : isDark
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
             }`}
         >
           {isRecording ? <MicOff className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
@@ -573,8 +507,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
           whileTap={{ scale: 0.95 }}
           onClick={() => setCurrentMode('chat')}
           className={`px-6 py-3 rounded-lg transition-colors ${isDark
-            ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-            : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+              : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
             }`}
         >
           Switch to Chat
@@ -624,17 +558,21 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
               whileTap={{ scale: 0.95 }}
               onClick={() => handleModeChange(mode)}
               className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${currentMode === mode
-                ? 'bg-blue-500 text-white shadow-lg'
-                : isDark
-                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-                } ${(mode === 'voice' && !canAccessFeature('voice')) || (mode === 'video' && !canAccessFeature('video')) ? 'opacity-50' : ''}`}
+                  ? 'bg-blue-500 text-white shadow-lg'
+                  : isDark
+                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                } ${(mode === 'voice' && !canAccessFeature('voice')) ||
+                  (mode === 'video' && !canAccessFeature('video'))
+                  ? 'opacity-50' : ''
+                }`}
             >
               <Icon className="w-4 h-4" />
               <span className="text-sm font-medium">{label}</span>
-              {((mode === 'voice' && !canAccessFeature('voice')) || (mode === 'video' && !canAccessFeature('video'))) && (
-                <span className="text-xs bg-yellow-500 text-black px-1 rounded">PRO</span>
-              )}
+              {((mode === 'voice' && !canAccessFeature('voice')) ||
+                (mode === 'video' && !canAccessFeature('video'))) && (
+                  <span className="text-xs bg-yellow-500 text-black px-1 rounded">PRO</span>
+                )}
             </motion.button>
           ))}
         </div>
@@ -654,10 +592,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
                 className="flex flex-col items-center justify-center h-full text-center"
               >
                 <div className={`p-6 rounded-xl ${isDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
-                  <MessageSquare className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
+                  <MessageSquare className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-blue-400' : 'text-blue-500'
+                    }`} />
                   {hasApiKey('gemini') ? (
                     <>
-                      <h3 className={`text-xl font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                      <h3 className={`text-xl font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'
+                        }`}>
                         Welcome to TherapAI
                       </h3>
                       <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'} mb-4 max-w-md`}>
@@ -667,7 +607,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
                     </>
                   ) : (
                     <>
-                      <h3 className={`text-xl font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                      <h3 className={`text-xl font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'
+                        }`}>
                         API Key Required
                       </h3>
                       <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'} mb-4 max-w-md`}>
@@ -736,14 +677,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
                   whileTap={{ scale: canUseVoiceInput() ? 0.9 : 1 }}
                   onClick={toggleRecording}
                   className={`p-3 rounded-full transition-all duration-200 ${isRecording
-                    ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse shadow-lg'
-                    : canUseVoiceInput()
-                      ? isDark
-                        ? 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-                        : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
-                      : 'bg-gray-300 text-gray-400 cursor-not-allowed'
+                      ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse shadow-lg'
+                      : canUseVoiceInput()
+                        ? isDark
+                          ? 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                          : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                        : 'bg-gray-300 text-gray-400 cursor-not-allowed'
                     }`}
-                  title={isRecording ? 'Stop recording' : canUseVoiceInput() ? 'Start voice recording' : 'Speech recognition not supported in your browser'}
+                  title={
+                    isRecording ? 'Stop recording' :
+                      canUseVoiceInput() ? 'Start voice recording' :
+                        'Speech recognition not supported in your browser'
+                  }
                   disabled={!canUseVoiceInput()}
                 >
                   {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
@@ -778,10 +723,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
                     onClick={handleSendMessage}
                     disabled={!inputValue.trim() || isGeneratingResponse || !hasApiKey('gemini')}
                     className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-full transition-all duration-200 ${inputValue.trim() && !isGeneratingResponse && hasApiKey('gemini')
-                      ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-lg'
-                      : isDark
-                        ? 'bg-gray-600 text-gray-400'
-                        : 'bg-gray-200 text-gray-400'
+                        ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-lg'
+                        : isDark
+                          ? 'bg-gray-600 text-gray-400'
+                          : 'bg-gray-200 text-gray-400'
                       } disabled:cursor-not-allowed`}
                   >
                     <Send className="w-4 h-4" />
