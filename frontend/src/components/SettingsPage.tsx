@@ -196,11 +196,10 @@ const SettingsPage: React.FC = () => {
                               setSelectedProvider(serviceKey as 'elevenlabs' | 'tavus' | 'gemini');
                               setShowSetupGuide(true);
                             }}
-                            className={`p-1.5 rounded-full transition-colors ${
-                              isDark 
-                                ? 'hover:bg-gray-600 text-gray-400 hover:text-blue-400' 
+                            className={`p-1.5 rounded-full transition-colors ${isDark
+                                ? 'hover:bg-gray-600 text-gray-400 hover:text-blue-400'
                                 : 'hover:bg-gray-200 text-gray-500 hover:text-blue-600'
-                            }`}
+                              }`}
                             title={`Setup guide for ${service.name}`}
                           >
                             <HelpCircle className="w-4 h-4" />
@@ -364,7 +363,7 @@ const SettingsPage: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
       {/* API Setup Guide Modal */}
       <ApiSetupGuide
         isOpen={showSetupGuide}

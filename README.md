@@ -39,12 +39,22 @@ TherapAI is a **free, open-source** mental health platform that combines artific
 1. **Node.js & npm** - Download from [nodejs.org](https://nodejs.org) (LTS version)
 2. **Netlify Account** - Sign up at [netlify.com](https://netlify.com)
 3. **GitHub Repository** - Push this code to GitHub
-4. **Required API Keys**:
-   - Supabase (Database & Auth)
-   - Google Gemini (AI Conversations)
+4. **Supabase Account** - For user authentication and database
+5. **Required API Keys**: Users provide their own through Settings:
+   - Google Gemini (AI Conversations) 
    - ElevenLabs (Voice Synthesis)
    - Tavus (Video Personas)
-   - RevenueCat (Subscriptions)
+
+### Database Setup (Important!)
+Before deploying, set up the database tables in Supabase:
+
+1. **Go to your Supabase project dashboard**
+2. **Navigate to SQL Editor**  
+3. **Run the migration files** in this order:
+   - First: `supabase_community_schema.sql`
+   - Then: `supabase/migrations/20250630113411_add_sessions_and_comments.sql`
+
+This creates tables for user sessions, messages, community posts, and comments.
 
 ### Option 1: Automatic Deployment (Recommended)
 ```powershell

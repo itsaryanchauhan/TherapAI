@@ -121,16 +121,15 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose, onGoToSe
                 <li>2. Go to Settings and add your API key</li>
                 <li>3. Return here to use the feature</li>
               </ol>
-              
+
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setShowSetupGuide(true)}
-                className={`mt-3 w-full flex items-center justify-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isDark 
-                    ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
+                className={`mt-3 w-full flex items-center justify-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isDark
+                    ? 'bg-gray-600 hover:bg-gray-500 text-gray-200'
                     : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                }`}
+                  }`}
               >
                 <BookOpen className="w-4 h-4" />
                 <span>View Detailed Setup Guide</span>
@@ -167,7 +166,7 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({ isOpen, onClose, onGoToSe
           </motion.div>
         </motion.div>
       )}
-      
+
       {/* API Setup Guide Modal */}
       <ApiSetupGuide
         isOpen={showSetupGuide}
