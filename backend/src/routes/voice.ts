@@ -8,9 +8,19 @@ const router = Router();
 // Get available voices
 router.get('/voices', async (req, res) => {
     try {
+        // Get ElevenLabs API key from request headers
+        const elevenlabsApiKey = req.headers['x-elevenlabs-api-key'] as string;
+
+        if (!elevenlabsApiKey) {
+            return res.status(400).json({
+                success: false,
+                message: 'ElevenLabs API key is required. Please add it in Settings.'
+            });
+        }
+
         const response = await axios.get('https://api.elevenlabs.io/v1/voices', {
             headers: {
-                'xi-api-key': process.env.ELEVENLABS_API_KEY
+                'xi-api-key': elevenlabsApiKey
             }
         });
 
@@ -41,6 +51,9 @@ router.post('/generate', async (req, res) => {
         const { text, voiceId, stability = 0.5, similarityBoost = 0.8 } = req.body;
         const userId = (req as any).user.userId;
 
+        // Get ElevenLabs API key from request headers
+        const elevenlabsApiKey = req.headers['x-elevenlabs-api-key'] as string;
+
         if (!text || !voiceId) {
             return res.status(400).json({
                 success: false,
@@ -48,8 +61,12 @@ router.post('/generate', async (req, res) => {
             });
         }
 
-        // Check if user has access to voice features
-        // This would typically check subscription status
+        if (!elevenlabsApiKey) {
+            return res.status(400).json({
+                success: false,
+                message: 'ElevenLabs API key is required. Please add it in Settings.'
+            });
+        }
 
         const response = await axios.post(
             `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
@@ -65,7 +82,7 @@ router.post('/generate', async (req, res) => {
                 headers: {
                     'Accept': 'audio/mpeg',
                     'Content-Type': 'application/json',
-                    'xi-api-key': process.env.ELEVENLABS_API_KEY
+                    'xi-api-key': elevenlabsApiKey
                 },
                 responseType: 'arraybuffer'
             }
@@ -96,10 +113,20 @@ router.post('/stream', async (req, res) => {
     try {
         const { text, voiceId } = req.body;
 
+        // Get ElevenLabs API key from request headers
+        const elevenlabsApiKey = req.headers['x-elevenlabs-api-key'] as string;
+
         if (!text || !voiceId) {
             return res.status(400).json({
                 success: false,
                 message: 'Text and voiceId are required'
+            });
+        }
+
+        if (!elevenlabsApiKey) {
+            return res.status(400).json({
+                success: false,
+                message: 'ElevenLabs API key is required. Please add it in Settings.'
             });
         }
 
@@ -117,7 +144,7 @@ router.post('/stream', async (req, res) => {
                 headers: {
                     'Accept': 'audio/mpeg',
                     'Content-Type': 'application/json',
-                    'xi-api-key': process.env.ELEVENLABS_API_KEY
+                    'xi-api-key': elevenlabsApiKey
                 },
                 responseType: 'stream'
             }
@@ -139,10 +166,20 @@ router.post('/clone', async (req, res) => {
     try {
         const { name, description, files } = req.body;
 
+        // Get ElevenLabs API key from request headers
+        const elevenlabsApiKey = req.headers['x-elevenlabs-api-key'] as string;
+
         if (!name || !files || files.length === 0) {
             return res.status(400).json({
                 success: false,
                 message: 'Name and audio files are required'
+            });
+        }
+
+        if (!elevenlabsApiKey) {
+            return res.status(400).json({
+                success: false,
+                message: 'ElevenLabs API key is required. Please add it in Settings.'
             });
         }
 
@@ -161,7 +198,7 @@ router.post('/clone', async (req, res) => {
             {
                 headers: {
                     'Accept': 'application/json',
-                    'xi-api-key': process.env.ELEVENLABS_API_KEY,
+                    'xi-api-key': elevenlabsApiKey,
                     ...formData.getHeaders()
                 }
             }

@@ -1,17 +1,22 @@
 # TherapAI 🧠💬
-**AI-Powered Mental Health Platform | The Future of Accessible Therapy**
+**AI-Powered Ment2. **GitHub Repository** - Push this code to GitHub
+3. **Supabase Account** - For user authentication and database
+4. **Users provide their own API keys** through Settings page:
+   - Google Gemini (required for AI chat)
+   - ElevenLabs (optional for voice)
+   - Tavus (optional for video)th Platform | The Future of Accessible Therapy**
 
 > Democratizing mental health care through AI-powered conversations, voice interactions, and video therapy sessions. Built for scale, designed for impact.
 
-## � What is TherapAI?
+## 💡 What is TherapAI?
 
-TherapAI is a comprehensive mental health platform that combines artificial intelligence with proven therapeutic techniques to provide 24/7 accessible mental health support. Unlike traditional therapy that can be expensive and hard to access, TherapAI offers:
+TherapAI is a **free, open-source** mental health platform that combines artificial intelligence with proven therapeutic techniques to provide 24/7 accessible mental health support. Unlike traditional therapy apps with subscriptions, TherapAI lets users bring their own AI API keys for a truly personalized experience:
 
 - **Instant AI Therapy Sessions** - Available 24/7 with Google Gemini-powered therapeutic conversations
-- **Voice & Video Interactions** - Natural conversations using ElevenLabs and Tavus technology  
-- **Subscription-Based Model** - Scalable revenue through tiered access plans
-- **Multi-Language Support** - Global accessibility with i18next localization
-- **Privacy-First Design** - Secure, HIPAA-compliant data handling
+- **Voice & Video Interactions** - Optional ElevenLabs and Tavus integration for premium features  
+- **User-Controlled API Keys** - No subscriptions, users pay AI providers directly for their usage
+- **Privacy-First Design** - API keys stored locally, no server-side key storage
+- **Open Source** - Complete transparency and customization freedom
 
 ## 💡 Why TherapAI Matters
 
@@ -22,17 +27,19 @@ TherapAI is a comprehensive mental health platform that combines artificial inte
 - **Wait times**: 2-8 weeks for first appointment
 
 ### Our Solution
-- **$0-50/month** subscription model vs $400-800/month traditional therapy
+- **$0 upfront cost** - Free platform with bring-your-own-API-keys model
+- **Direct AI provider pricing** - Pay only for actual usage (typically $0.001-0.01 per session)
 - **Instant access** to therapeutic support anytime, anywhere
-- **Scalable AI therapists** that never sleep or take vacations
-- **Privacy by design** - no judgment, complete anonymity
+- **Unlimited usage** - No artificial limits, only limited by your API budget
+- **Complete privacy** - Keys stored locally, no tracking or data collection
 
 ## 🚀 Complete Netlify Deployment Guide
 
 ### Prerequisites
-1. **Netlify Account** - Sign up at [netlify.com](https://netlify.com)
-2. **GitHub Repository** - Push this code to GitHub
-3. **Required API Keys**:
+1. **Node.js & npm** - Download from [nodejs.org](https://nodejs.org) (LTS version)
+2. **Netlify Account** - Sign up at [netlify.com](https://netlify.com)
+3. **GitHub Repository** - Push this code to GitHub
+4. **Required API Keys**:
    - Supabase (Database & Auth)
    - Google Gemini (AI Conversations)
    - ElevenLabs (Voice Synthesis)
@@ -40,8 +47,10 @@ TherapAI is a comprehensive mental health platform that combines artificial inte
    - RevenueCat (Subscriptions)
 
 ### Option 1: Automatic Deployment (Recommended)
-```bash
-# Easy one-command deployment
+```powershell
+# Step 1: Install Node.js from https://nodejs.org (if not already installed)
+# Step 2: Open PowerShell in the TherapAI folder
+# Step 3: Run the deployment script
 .\deploy-netlify.ps1
 ```
 
@@ -65,7 +74,6 @@ In Netlify Dashboard → Site Settings → Environment Variables:
 ```bash
 VITE_SUPABASE_URL=your_supabase_url_here
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
-VITE_REVENUECAT_PUBLIC_KEY=your_revenuecat_public_key_here
 
 # For Netlify: API is on same domain as frontend
 VITE_BACKEND_URL=/api
@@ -75,15 +83,20 @@ VITE_BACKEND_URL=/api
 ```bash
 SUPABASE_URL=your_supabase_url_here
 SUPABASE_SERVICE_KEY=your_supabase_service_key_here
-GEMINI_API_KEY=your_gemini_api_key_here
-ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
-TAVUS_API_KEY=your_tavus_api_key_here
-REVENUECAT_API_KEY=your_revenuecat_secret_key_here
 JWT_SECRET=your_generated_jwt_secret
 
 # CORS setup - replace with your actual Netlify URL
 FRONTEND_URL=https://your-therapai-site.netlify.app
+
+# Optional: Email notifications
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password
 ```
+
+**🔑 AI API Keys:**
+Users add their own API keys through the Settings page. Keys are stored securely in browser localStorage and never sent to your server!
 
 ### Step 3: Database Setup
 ```sql
@@ -185,7 +198,7 @@ VITE_BACKEND_URL=/api  # Relative URL - same domain!
 - **AI Chat**: Google Gemini for therapeutic conversations
 - **Voice**: ElevenLabs for natural speech synthesis
 - **Video**: Tavus for AI-powered video personas
-- **Payments**: RevenueCat for subscription management
+- **Subscriptions**: RevenueCat for cross-platform subscription management
 
 ### Infrastructure
 - **Hosting**: Netlify (frontend + serverless functions)
@@ -301,6 +314,48 @@ MIT License - Free for personal and commercial use.
 **Ready to revolutionize mental health care?** 
 Deploy TherapAI today and start making therapy accessible to everyone, everywhere.
 
+## 🔧 Troubleshooting
+
+### Common Issues & Solutions
+
+#### 1. **npm not recognized / Node.js not installed**
+```bash
+# Error: 'npm' is not recognized as a command
+```
+**Solution**: 
+1. Download Node.js LTS from [nodejs.org](https://nodejs.org)
+2. Install using default settings (includes npm)
+3. Restart your terminal/PowerShell
+4. Test: `node --version` and `npm --version`
+
+#### 2. **Package version not found (like elevenlabs@^0.3.4)**
+```bash
+# Error: npm error notarget No matching version found
+```
+**Solution**: The package.json has been fixed! We removed the incorrect `elevenlabs` package.
+
+#### 3. **Netlify build fails**
+**Solution**: 
+1. Check environment variables are set correctly
+2. Ensure `VITE_BACKEND_URL=/api` (not full URL)
+3. Verify all required API keys are added
+
+#### 4. **API calls fail in production**
+**Solution**: 
+1. Update `FRONTEND_URL` in backend environment to your actual Netlify URL
+2. Check Supabase CORS settings allow your domain
+3. Verify API endpoints use relative URLs (`/api/...`)
+
+#### 5. **TypeScript errors in backend**
+```bash
+# Error: Cannot find name 'process'
+```
+**Solution**: The backend already includes `@types/node` in devDependencies. If issues persist:
+```bash
+cd backend
+npm install
+```
+
 ## 📧 Email Configuration (SMTP)
 
 **What is SMTP?** Simple Mail Transfer Protocol - how your app sends emails.
@@ -328,3 +383,52 @@ Deploy TherapAI today and start making therapy accessible to everyone, everywher
    - Better deliverability for businesses
 
 **For Production:** Use SendGrid or Mailgun for better deliverability and analytics.
+
+## 🔑 Required API Keys
+
+### 1. **Supabase** (Database & Auth)
+- **Get at**: https://supabase.com
+- **Free tier**: 500MB database, 50,000 monthly active users
+- **Cost**: $25/month for production
+
+### 2. **RevenueCat** (Subscriptions)
+- **Get at**: https://revenuecat.com
+- **Free tier**: Up to $10k Monthly Tracked Revenue
+- **Cost**: 1% of revenue above free tier
+- Use the **public API key** in frontend
+- Use the **secret API key** in backend
+- Set up webhook endpoint: `https://your-site.netlify.app/api/subscription/webhook`
+- Configure products/offerings in RevenueCat dashboard
+
+### 3. **Google Gemini** (AI Chat)
+- **Get at**: https://makersuite.google.com/app/apikey
+- **Free tier**: 60 requests/minute
+- **Cost**: $0.00025 per 1K characters
+
+### 4. **ElevenLabs** (Voice)
+- **Get at**: https://elevenlabs.io
+- **Free tier**: 10,000 characters/month
+- **Cost**: $5/month for 30K characters
+
+### 5. **Tavus** (Video Avatars)
+- **Get at**: https://tavus.io
+- **Cost**: Pay-per-use, ~$1 per minute of video
+
+## 💰 Pricing Strategy
+
+### TherapAI Plans:
+- **Free**: $0/month
+  - 5 AI sessions per month
+  - Text chat only
+  - Basic support
+
+- **Premium**: $19.99/month  
+  - Unlimited AI sessions
+  - Voice responses
+  - Priority support
+
+- **Pro**: $39.99/month
+  - All Premium features
+  - Video avatar therapy
+  - Custom therapy plans
+  - 1-on-1 human therapist connection

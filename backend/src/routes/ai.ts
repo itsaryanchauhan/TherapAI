@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 import { logger } from '../utils/logger.js';
 
 const router = Router();
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 const supabase = createClient(
     process.env.SUPABASE_URL!,
@@ -17,12 +16,25 @@ router.post('/chat', async (req: Request, res: Response) => {
         const { message, sessionId, language = 'en' } = req.body;
         const userId = (req as any).user.userId;
 
+        // Get Gemini API key from request headers
+        const geminiApiKey = req.headers['x-gemini-api-key'] as string;
+
         if (!message) {
             return res.status(400).json({
                 success: false,
                 message: 'Message is required'
             });
         }
+
+        if (!geminiApiKey) {
+            return res.status(400).json({
+                success: false,
+                message: 'Gemini API key is required. Please add it in Settings.'
+            });
+        }
+
+        // Initialize Gemini with user's API key
+        const genAI = new GoogleGenerativeAI(geminiApiKey);
 
         // Get conversation history if sessionId provided
         let conversationHistory: any[] = [];
@@ -106,12 +118,25 @@ router.post('/chat/stream', async (req: Request, res: Response) => {
         const { message, sessionId, language = 'en' } = req.body;
         const userId = (req as any).user.userId;
 
+        // Get Gemini API key from request headers
+        const geminiApiKey = req.headers['x-gemini-api-key'] as string;
+
         if (!message) {
             return res.status(400).json({
                 success: false,
                 message: 'Message is required'
             });
         }
+
+        if (!geminiApiKey) {
+            return res.status(400).json({
+                success: false,
+                message: 'Gemini API key is required. Please add it in Settings.'
+            });
+        }
+
+        // Initialize Gemini with user's API key
+        const genAI = new GoogleGenerativeAI(geminiApiKey);
 
         // Set up SSE headers
         res.writeHead(200, {
@@ -197,6 +222,19 @@ router.post('/analyze', async (req: Request, res: Response) => {
     try {
         const { sessionId } = req.body;
         const userId = (req as any).user.userId;
+
+        // Get Gemini API key from request headers
+        const geminiApiKey = req.headers['x-gemini-api-key'] as string;
+
+        if (!geminiApiKey) {
+            return res.status(400).json({
+                success: false,
+                message: 'Gemini API key is required. Please add it in Settings.'
+            });
+        }
+
+        // Initialize Gemini with user's API key
+        const genAI = new GoogleGenerativeAI(geminiApiKey);
 
         // Get recent conversation
         const { data: messages } = await supabase

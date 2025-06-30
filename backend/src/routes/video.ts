@@ -7,9 +7,19 @@ const router = Router();
 // Get available replicas
 router.get('/replicas', async (req, res) => {
     try {
+        // Get Tavus API key from request headers
+        const tavusApiKey = req.headers['x-tavus-api-key'] as string;
+
+        if (!tavusApiKey) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tavus API key is required. Please add it in Settings.'
+            });
+        }
+
         const response = await axios.get('https://tavusapi.com/v2/replicas', {
             headers: {
-                'x-api-key': process.env.TAVUS_API_KEY,
+                'x-api-key': tavusApiKey,
                 'Content-Type': 'application/json'
             }
         });
@@ -41,6 +51,9 @@ router.post('/generate', async (req, res) => {
         const { script, replicaId, voiceId } = req.body;
         const userId = (req as any).user.userId;
 
+        // Get Tavus API key from request headers
+        const tavusApiKey = req.headers['x-tavus-api-key'] as string;
+
         if (!script || !replicaId) {
             return res.status(400).json({
                 success: false,
@@ -48,8 +61,12 @@ router.post('/generate', async (req, res) => {
             });
         }
 
-        // Check if user has access to video features
-        // This would typically check subscription status
+        if (!tavusApiKey) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tavus API key is required. Please add it in Settings.'
+            });
+        }
 
         const response = await axios.post(
             'https://tavusapi.com/v2/videos',
@@ -62,7 +79,7 @@ router.post('/generate', async (req, res) => {
             },
             {
                 headers: {
-                    'x-api-key': process.env.TAVUS_API_KEY,
+                    'x-api-key': tavusApiKey,
                     'Content-Type': 'application/json'
                 }
             }

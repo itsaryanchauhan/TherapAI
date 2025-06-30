@@ -17,8 +17,6 @@
     "recharts": "^2.8.0",
     "react-router-dom": "^6.20.1",
     "framer-motion": "^10.16.16",
-    "@revenuecat/purchases-js": "^1.2.3",
-    "@revenuecat/web-purchases": "^1.2.3",
     "axios": "^1.6.2",
     "socket.io-client": "^4.7.4",
     "webrtc-adapter": "^8.2.3",

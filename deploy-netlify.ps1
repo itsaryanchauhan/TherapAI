@@ -1,6 +1,16 @@
 # TherapAI Netlify Deployment Script
 Write-Host "🚀 Deploying TherapAI to Netlify..." -ForegroundColor Green
 
+# Check if Node.js is installed
+try {
+    $nodeVersion = node --version
+    Write-Host "✅ Node.js found: $nodeVersion" -ForegroundColor Green
+} catch {
+    Write-Host "❌ Node.js not found! Please install from https://nodejs.org" -ForegroundColor Red
+    Write-Host "💡 Download the LTS version and restart your terminal" -ForegroundColor Yellow
+    exit 1
+}
+
 # Check if Netlify CLI is installed
 try {
     netlify --version | Out-Null
@@ -63,15 +73,14 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "   Frontend (Public - Site settings > Environment variables):" -ForegroundColor Yellow
     Write-Host "   • VITE_SUPABASE_URL" -ForegroundColor White
     Write-Host "   • VITE_SUPABASE_ANON_KEY" -ForegroundColor White
-    Write-Host "   • VITE_REVENUECAT_PUBLIC_KEY" -ForegroundColor White
+    Write-Host "   • VITE_BACKEND_URL=/api" -ForegroundColor White
     Write-Host ""
     Write-Host "   Backend (Private - Functions environment):" -ForegroundColor Yellow
     Write-Host "   • SUPABASE_SERVICE_KEY" -ForegroundColor White
-    Write-Host "   • GEMINI_API_KEY" -ForegroundColor White
-    Write-Host "   • ELEVENLABS_API_KEY" -ForegroundColor White
-    Write-Host "   • TAVUS_API_KEY" -ForegroundColor White
-    Write-Host "   • REVENUECAT_SECRET_KEY" -ForegroundColor White
     Write-Host "   • JWT_SECRET" -ForegroundColor White
+    Write-Host "   • FRONTEND_URL=https://your-actual-site.netlify.app" -ForegroundColor White
+    Write-Host ""
+    Write-Host "💡 API Keys: Users add their own keys in app Settings (stored locally)" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "🔒 Security Note: Never put secret API keys in frontend!" -ForegroundColor Red
     Write-Host ""
