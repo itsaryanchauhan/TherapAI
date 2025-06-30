@@ -30,6 +30,7 @@ const VoiceVideoCall: React.FC<VoiceVideoCallProps> = ({ isOpen, onClose, mode, 
     const streamRef = useRef<MediaStream | null>(null);
 
     useEffect(() => {
+<<<<<<< HEAD
     if (isOpen) {
         const requiredApiKey = mode === 'voice' ? 'elevenlabs' : 'tavus';
         const hasAccess = hasApiKey(requiredApiKey);
@@ -40,6 +41,14 @@ const VoiceVideoCall: React.FC<VoiceVideoCallProps> = ({ isOpen, onClose, mode, 
         cleanup();
     };
 }, [isOpen, mode]);
+=======
+        if (isOpen) {
+            const requiredApiKey = mode === 'voice' ? 'elevenlabs' : 'tavus';
+            const hasAccess = hasApiKey(requiredApiKey);
+            setShowUpgrade(!hasAccess);
+        }
+>>>>>>> 1608ea1f1be19e02b7633ab3cb56fc957cb512f5
+
 
 
     const initializeCall = async () => {
@@ -64,14 +73,24 @@ const VoiceVideoCall: React.FC<VoiceVideoCallProps> = ({ isOpen, onClose, mode, 
             toast.success(`${mode === 'video' ? 'Video' : 'Voice'} call started`);
         } catch (error) {
             console.error('Failed to initialize call:', error);
+<<<<<<< HEAD
             
             let message = 'Failed to access camera/microphone';
             
+=======
+
+            let message = 'Failed to access camera/microphone';
+
+>>>>>>> 1608ea1f1be19e02b7633ab3cb56fc957cb512f5
             if (error instanceof DOMException) {
                 switch (error.name) {
                     case 'NotAllowedError':
                     case 'PermissionDeniedError':
+<<<<<<< HEAD
                         message = mode === 'video' 
+=======
+                        message = mode === 'video'
+>>>>>>> 1608ea1f1be19e02b7633ab3cb56fc957cb512f5
                             ? 'Camera and microphone access denied. Please allow access and try again.'
                             : 'Microphone access denied. Please allow access and try again.';
                         break;
@@ -100,7 +119,11 @@ const VoiceVideoCall: React.FC<VoiceVideoCallProps> = ({ isOpen, onClose, mode, 
                         message = `Media error (${error.name}): ${error.message || 'Unknown error occurred.'}`;
                 }
             }
+<<<<<<< HEAD
             
+=======
+
+>>>>>>> 1608ea1f1be19e02b7633ab3cb56fc957cb512f5
             toast.error(message);
             onClose(); // Close the call interface on error
         }
