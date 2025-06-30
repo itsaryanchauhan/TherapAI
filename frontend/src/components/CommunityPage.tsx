@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { CommunityPost } from '../types';
-import { getCommunityPosts, createCommunityPost, reactToPost } from '../services/supabase';
+import { getCommunityPosts, createCommunityPost, reactToPost, createComment } from '../services/supabase';
 
 const CommunityPage: React.FC = () => {
   const [posts, setPosts] = useState<CommunityPost[]>([]);
@@ -119,18 +119,19 @@ const CommunityPage: React.FC = () => {
     try {
       setIsCommenting(prev => ({ ...prev, [postId]: true }));
 
-      // Here you would implement the actual comment creation
-      // For now, we'll just simulate it
-      console.log('Adding comment:', commentText, 'to post:', postId);
+      // Create the comment
+      await createComment(postId, user.id, commentText);
 
       // Clear the comment text
       setCommentTexts(prev => ({ ...prev, [postId]: '' }));
 
-      // You would typically call an API here to save the comment
-      // await createComment(postId, user.id, commentText);
+      // Refresh posts to show the new comment
+      await loadCommunityPosts();
 
+      console.log('Comment added successfully');
     } catch (error) {
       console.error('Error adding comment:', error);
+      alert('Failed to add comment. Please try again.');
     } finally {
       setIsCommenting(prev => ({ ...prev, [postId]: false }));
     }

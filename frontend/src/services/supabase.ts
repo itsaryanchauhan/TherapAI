@@ -257,3 +257,28 @@ export const reactToPost = async (postId: string, userId: string, reactionType: 
     throw error;
   }
 };
+
+export const createComment = async (postId: string, userId: string, content: string) => {
+  try {
+    const anonymousId = `Anon Founder #${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`;
+
+    const { data, error } = await supabase
+      .from('community_comments')
+      .insert([
+        {
+          post_id: postId,
+          user_id: userId,
+          anonymous_id: anonymousId,
+          content
+        }
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error creating comment:', error);
+    throw error;
+  }
+};
