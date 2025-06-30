@@ -62,7 +62,6 @@ export const saveMessage = async (message: Omit<Message, 'id'>) => {
           is_user: message.is_user,
           timestamp: message.timestamp.toISOString(),
           audio_url: message.audio_url,
-          video_url: message.video_url,
           sentiment_score: message.sentiment_score,
           word_count: message.word_count
         }

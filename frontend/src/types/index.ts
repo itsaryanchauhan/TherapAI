@@ -15,7 +15,6 @@ export interface Message {
   is_user: boolean;
   timestamp: Date;
   audio_url?: string;
-  video_url?: string;
   sentiment_score?: number;
   word_count: number;
 }
@@ -30,7 +29,7 @@ export interface Session {
   message_count: number;
   total_words: number;
   average_sentiment: number;
-  session_type: 'chat' | 'voice' | 'video';
+  session_type: 'chat' | 'voice';
   summary?: string;
 }
 

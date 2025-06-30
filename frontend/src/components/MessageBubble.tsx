@@ -3,11 +3,10 @@ import { Play, Pause, Volume2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Message } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
-import VideoResponse from './VideoResponse';
 
 interface MessageBubbleProps {
   message: Message;
-  mode: 'chat' | 'voice' | 'video';
+  mode: 'chat' | 'voice';
 }
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message, mode }) => {
@@ -37,12 +36,6 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, mode }) => {
           ? 'bg-gray-700 text-gray-100'
           : 'bg-gray-100 text-gray-900'
       } shadow-lg`}>
-        {/* Video Response */}
-        {message.video_url && !message.is_user && mode === 'video' && (
-          <div className="mb-3">
-            <VideoResponse videoUrl={message.video_url} />
-          </div>
-        )}
         
         {/* Message Content */}
         <p className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -50,13 +43,11 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, mode }) => {
         </p>
 
         {/* Audio Player */}
-        {message.audio_url && !message.is_user && (mode === 'voice' || mode === 'video') && (
-          <div className="mt-3 flex items-center space-x-2">
+        {message.audio_url && !message.is_user && mode === 'voice' && (
+          <div className="mt-2 flex items-center space-x-2">
             <button
               onClick={playAudio}
-              className={`p-2 rounded-full transition-colors duration-200 ${
-                isDark ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-200 hover:bg-gray-300'
-              }`}
+              className="p-1 hover:bg-white/10 rounded-full transition-colors"
             >
               {isPlayingAudio ? (
                 <Pause className="w-4 h-4" />
@@ -64,24 +55,11 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, mode }) => {
                 <Play className="w-4 h-4" />
               )}
             </button>
-            <Volume2 className="w-4 h-4 opacity-60" />
-            <span className="text-xs opacity-60">Voice response</span>
+            {isPlayingAudio && (
+              <Volume2 className="w-4 h-4 animate-pulse" />
+            )}
           </div>
         )}
-        
-        {/* Timestamp */}
-        <div className={`text-xs mt-2 ${
-          message.is_user
-            ? 'text-blue-100'
-            : isDark
-            ? 'text-gray-400'
-            : 'text-gray-500'
-        }`}>
-          {message.timestamp.toLocaleTimeString([], { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          })}
-        </div>
       </div>
     </motion.div>
   );

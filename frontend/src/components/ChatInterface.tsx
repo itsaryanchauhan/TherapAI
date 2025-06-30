@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, MessageSquare, Phone, Monitor } from 'lucide-react';
+import { Send, Mic, MicOff, MessageSquare, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Message } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
@@ -22,7 +22,7 @@ declare global {
   }
 }
 
-type ChatMode = 'chat' | 'voice' | 'video';
+type ChatMode = 'chat' | 'voice';
 
 interface ChatInterfaceProps {
   onNewMessage?: (message: Message) => void;
@@ -38,7 +38,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   const [sessionId, setSessionId] = useState<string>('');
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
-  const [upgradePromptFeature, setUpgradePromptFeature] = useState<'voice' | 'video' | undefined>(undefined);
+  const [upgradePromptFeature, setUpgradePromptFeature] = useState<'voice' | undefined>(undefined);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -53,11 +53,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   const { hasApiKey } = useSettings();
 
   // Helper function to check if user can access a feature based on API keys
-  const canAccessFeature = (feature: 'voice' | 'video') => {
+  const canAccessFeature = (feature: 'voice') => {
     if (feature === 'voice') {
       return hasApiKey('elevenlabs');
-    } else if (feature === 'video') {
-      return hasApiKey('tavus');
     }
     return false;
   };
@@ -178,16 +176,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
 
       const responseText = aiResponse.response;
       let audioUrl = '';
-      let videoUrl = '';
 
-      // Generate voice response if in voice/video mode and user has ElevenLabs API key
-      if ((currentMode === 'voice' || currentMode === 'video') && hasApiKey('elevenlabs')) {
+      // Generate voice response if in voice mode and user has ElevenLabs API key
+      if (currentMode === 'voice' && hasApiKey('elevenlabs')) {
         try {
           setIsAiSpeaking(true);
           const voiceResponse = await generateVoiceResponse(responseText);
           if (voiceResponse.status === 'ready') {
             audioUrl = voiceResponse.audioUrl;
-            if (currentMode === 'voice' && audioRef.current) {
+            if (audioRef.current) {
               audioRef.current.src = audioUrl;
               audioRef.current.onended = () => setIsAiSpeaking(false);
               audioRef.current.play().catch(console.error);
@@ -208,7 +205,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
           is_user: false,
           timestamp: new Date(),
           audio_url: audioUrl || undefined,
-          video_url: videoUrl || undefined,
           word_count: responseText.split(' ').length
         };
 
@@ -258,11 +254,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
       setShowUpgradePrompt(true);
       return;
     }
-    if (mode === 'video' && !canAccessFeature('video')) {
-      setUpgradePromptFeature('video');
-      setShowUpgradePrompt(true);
-      return;
-    }
     setCurrentMode(mode);
   };
 
@@ -270,55 +261,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
     if (!canUseVoiceInput()) {
       if (currentMode === 'voice') {
         setUpgradePromptFeature('voice');
-      } else {
-        setUpgradePromptFeature(undefined);
       }
       setShowUpgradePrompt(true);
       return;
-    }
-
-    // In voice mode, use ElevenLabs transcription
-    if (currentMode === 'voice' && hasApiKey('elevenlabs')) {
-      try {
-        // Permission already verified by toggleRecording, proceed directly
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const mediaRecorder = new MediaRecorder(stream);
-        mediaRecorderRef.current = mediaRecorder;
-        audioChunksRef.current = [];
-
-        mediaRecorder.ondataavailable = (event) => {
-          audioChunksRef.current.push(event.data);
-        };
-
-        mediaRecorder.onstop = async () => {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-          try {
-            const transcription = await transcribeAudio(audioBlob);
-            if (transcription) {
-              setInputValue(transcription);
-              // Auto-send in voice mode
-              setTimeout(() => {
-                if (transcription.trim()) {
-                  handleSendMessage();
-                }
-              }, 500);
-            }
-          } catch (error) {
-            console.error('Transcription failed:', error);
-          }
-          stream.getTracks().forEach(track => track.stop());
-        };
-
-        mediaRecorder.start();
-        setIsRecording(true);
-        return;
-      } catch (error) {
-        console.error('Error starting ElevenLabs recording:', error);
-        // Permission issues should have been caught by toggleRecording
-        // This is likely a different error (device busy, etc.)
-        alert('Unable to start recording. Please try again.');
-        return;
-      }
     }
 
     // For chat mode, use Web Speech API
@@ -590,8 +535,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
         <div className="flex items-center justify-center space-x-2">
           {[
             { mode: 'chat' as ChatMode, icon: MessageSquare, label: 'Chat' },
-            { mode: 'voice' as ChatMode, icon: Phone, label: 'Voice' },
-            { mode: 'video' as ChatMode, icon: Monitor, label: 'Video' }
+            { mode: 'voice' as ChatMode, icon: Phone, label: 'Voice' }
           ].map(({ mode, icon: Icon, label }) => (
             <motion.button
               key={mode}
@@ -599,21 +543,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
               whileTap={{ scale: 0.95 }}
               onClick={() => handleModeChange(mode)}
               className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${currentMode === mode
-                  ? 'bg-blue-500 text-white shadow-lg'
-                  : isDark
-                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    : 'bg-white text-gray-700 hover:bg-gray-100'
-                } ${(mode === 'voice' && !canAccessFeature('voice')) ||
-                  (mode === 'video' && !canAccessFeature('video'))
-                  ? 'opacity-50' : ''
-                }`}
+                ? 'bg-blue-500 text-white shadow-lg'
+                : isDark
+                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              } ${(mode === 'voice' && !canAccessFeature('voice')) ? 'opacity-50' : ''}`}
             >
               <Icon className="w-4 h-4" />
               <span className="text-sm font-medium">{label}</span>
-              {((mode === 'voice' && !canAccessFeature('voice')) ||
-                (mode === 'video' && !canAccessFeature('video'))) && (
-                  <span className="text-xs bg-yellow-500 text-black px-1 rounded">PRO</span>
-                )}
+              {(mode === 'voice' && !canAccessFeature('voice')) && (
+                <span className="text-xs bg-yellow-500 text-black px-1 rounded">PRO</span>
+              )}
             </motion.button>
           ))}
         </div>
@@ -690,14 +630,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
                 animate={{ opacity: 1, y: 0 }}
                 className={`flex justify-start`}
               >
-                <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-                  }`}>
+                <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
                   <div className="flex items-center space-x-2">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                     <span className="text-sm">
-                      {currentMode === 'video' ? 'Generating video response...' :
-                        currentMode === 'voice' ? 'Generating voice response...' :
-                          'Thinking...'}
+                      {currentMode === 'voice' ? 'Generating voice response...' : 'Thinking...'}
                     </span>
                   </div>
                 </div>
@@ -707,8 +644,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Area - only show in chat/video mode */}
-          {currentMode !== 'voice' || !hasApiKey('elevenlabs') ? (
+          {/* Input Area - only show in chat mode */}
+          {currentMode === 'chat' ? (
             <div className={`border-t p-4 transition-colors duration-300 ${isDark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'
               }`}>
               <div className="flex items-center space-x-3">
