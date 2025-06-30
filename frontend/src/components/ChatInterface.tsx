@@ -40,6 +40,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [upgradePromptFeature, setUpgradePromptFeature] = useState<'voice' | undefined>(undefined);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+  const [micPermissionGranted, setMicPermissionGranted] = useState<boolean | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -51,6 +52,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   const { isDark } = useTheme();
   const { user } = useAuth();
   const { hasApiKey } = useSettings();
+
+  // Check for microphone permission on component mount
+  useEffect(() => {
+    const checkMicPermission = async () => {
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        setMicPermissionGranted(permissionStatus.state === 'granted');
+        
+        permissionStatus.onchange = () => {
+          setMicPermissionGranted(permissionStatus.state === 'granted');
+        };
+      } catch (error) {
+        console.log('Permission API not supported, will check on first use');
+        setMicPermissionGranted(null);
+      }
+    };
+    
+    checkMicPermission();
+  }, []);
 
   // Helper function to check if user can access a feature based on API keys
   const canAccessFeature = (feature: 'voice') => {
@@ -394,17 +414,49 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
       stopRecording();
       return;
     }
-
+    
+    // Only request mic access on button click
     try {
-      // Simply request microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log("Microphone access granted");
+      // First check if we already have permission
+      if (micPermissionGranted === true) {
+        startRecording();
+        return;
+      }
       
-      // Store the stream and start recording
-      window.localStream = stream;
+      // Request microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Update permission state
+      setMicPermissionGranted(true);
+      
+      // If we're just checking permission, stop the stream
+      if (!isRecording) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      
+      // Start recording now that we have permission
       startRecording();
     } catch (error) {
-      console.error("Could not access microphone:", error);
+      console.error("Mic access error:", error);
+      setMicPermissionGranted(false);
+      
+      if (error instanceof DOMException) {
+        switch (error.name) {
+          case 'NotAllowedError':
+            alert("Microphone access denied. Please allow it in your browser and try again.");
+            break;
+          case 'NotFoundError':
+            alert("No microphone found. Please connect a microphone.");
+            break;
+          case 'NotReadableError':
+            alert("Microphone is already in use by another app.");
+            break;
+          default:
+            alert("Microphone error: " + error.message);
+        }
+      } else {
+        alert("Unexpected error: " + error);
+      }
     }
   };
 
