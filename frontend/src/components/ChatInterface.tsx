@@ -53,7 +53,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
     if (feature === 'voice') {
       // Web Speech API doesn't require API key, but check if it's supported
       const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-      return !!SpeechRecognition || hasApiKey('elevenlabs'); // Fallback to ElevenLabs if Web Speech API not available
+      const hasSpeechAPI = !!SpeechRecognition;
+      const hasElevenLabsKey = hasApiKey('elevenlabs');
+
+      console.log('Voice feature check:', { hasSpeechAPI, hasElevenLabsKey });
+
+      return hasSpeechAPI || hasElevenLabsKey; // Fallback to ElevenLabs if Web Speech API not available
     } else if (feature === 'video') {
       return hasApiKey('tavus');
     }
@@ -239,7 +244,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   };
 
   const handleModeChange = (mode: ChatMode) => {
-    if (mode !== 'chat' && !canAccessFeature(mode === 'voice' ? 'voice' : 'video')) {
+    if ((mode === 'voice' && !canAccessFeature('voice')) || (mode === 'video' && !canAccessFeature('video'))) {
       setShowUpgradePrompt(true);
       return;
     }
@@ -335,6 +340,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
   };
 
   const toggleRecording = () => {
+    console.log('Toggle recording clicked, isRecording:', isRecording, 'canAccessVoice:', canAccessFeature('voice'));
     if (isRecording) {
       stopRecording();
     } else {
@@ -364,11 +370,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onNewMessage, onNavigateT
                 : isDark
                   ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   : 'bg-white text-gray-700 hover:bg-gray-100'
-                } ${!canAccessFeature(mode === 'voice' ? 'voice' : mode === 'video' ? 'video' : 'voice') && mode !== 'chat' ? 'opacity-50' : ''}`}
+                } ${(mode === 'voice' && !canAccessFeature('voice')) || (mode === 'video' && !canAccessFeature('video')) ? 'opacity-50' : ''}`}
             >
               <Icon className="w-4 h-4" />
               <span className="text-sm font-medium">{label}</span>
-              {!canAccessFeature(mode === 'voice' ? 'voice' : mode === 'video' ? 'video' : 'voice') && mode !== 'chat' && (
+              {((mode === 'voice' && !canAccessFeature('voice')) || (mode === 'video' && !canAccessFeature('video'))) && (
                 <span className="text-xs bg-yellow-500 text-black px-1 rounded">PRO</span>
               )}
             </motion.button>
